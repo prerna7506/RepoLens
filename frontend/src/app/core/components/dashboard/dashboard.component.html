@@ -1,0 +1,15 @@
+<div class="dashboard">
+  <header class="header">
+    <h1>RepoLens</h1>
+    <div class="user-info" *ngIf="username">
+      <img *ngIf="avatarUrl" [src]="avatarUrl" class="avatar" />
+      <span>{{ username }}</span>
+      <button (click)="auth.logout()" class="logout-btn">Logout</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <h2>Welcome, {{ username }}!</h2>
+    <p>Your dashboard is ready. Repo analysis coming in Phase 2.</p>
+  </main>
+</div>
