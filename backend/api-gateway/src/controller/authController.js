@@ -17,7 +17,7 @@ function redirectToGithub(req, res) {
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID,
     redirect_uri: process.env.GITHUB_CALLBACK_URL,
-    scope: 'read:user'
+    scope: 'read:user, repo'
   });
   res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
 }

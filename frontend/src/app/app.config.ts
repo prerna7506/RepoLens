@@ -23,7 +23,13 @@ const routes: Routes = [
     loadComponent: () =>
       import('./core/components/dashboard/dashboard.component').then((m) => m.DashboardComponent)
   },
-  { path: '', redirectTo: 'login', pathMatch: 'full' }
+  {
+    path: 'chat/:repoId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./core/components/chat/chat.component').then((m) => m.ChatComponent)
+  },
+  { path: '', redirectTo: 'login', pathMatch: 'full' },
 ];
 
 export const appConfig: ApplicationConfig = {

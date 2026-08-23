@@ -17,8 +17,7 @@ from app.logger import logger
 
 import redis as redis_client
 
-# Load embedding model once at worker startup
-# Lazy load — model loads only when first task runs, not at startup
+# ── Lazy load model ────────────────────────────────────────
 _model = None
 
 def get_model():
@@ -27,25 +26,27 @@ def get_model():
         logger.info("loading_embedding_model")
         _model = SentenceTransformer("BAAI/bge-small-en-v1.5")
     return _model
-# Build Tree-sitter languages
+
+# ── Tree-sitter languages ──────────────────────────────────
 JS_LANGUAGE = Language(tsjavascript.language(), "javascript")
 TS_LANGUAGE = Language(tstypescript.language_typescript(), "typescript")
 
-# Redis for embedding cache
-redis = redis_client.Redis.from_url(REDIS_URL, 
-                                    decode_responses=True,  
-                                    ssl_cert_reqs=None)
+# ── Redis for embedding cache ──────────────────────────────
+redis = redis_client.Redis.from_url(
+    REDIS_URL,
+    decode_responses=True,
+    ssl_cert_reqs=None
+)
 
-
+# ── Helpers ────────────────────────────────────────────────
 def get_db():
     return psycopg2.connect(DATABASE_URL)
-
 
 def sha256(content: str) -> str:
     return hashlib.sha256(content.encode()).hexdigest()
 
-
 def parse_ast(code: str, language: str):
+    """Extract chunks from code using Tree-sitter AST."""
     parser = Parser()
     if language == "typescript":
         parser.set_language(TS_LANGUAGE)
@@ -53,7 +54,6 @@ def parse_ast(code: str, language: str):
         parser.set_language(JS_LANGUAGE)
 
     tree = parser.parse(bytes(code, "utf8"))
-    lines = code.split("\n")
     chunks = []
 
     def node_text(node):
@@ -92,10 +92,10 @@ def parse_ast(code: str, language: str):
     walk(tree.root_node)
     return chunks
 
-
+# ── Main Celery task ───────────────────────────────────────
 @celery_app.task(bind=True, name="ingest_repo")
-def ingest_repo(self, repo_id: str, github_url: str):
-    """Main ingestion task — clone, parse, embed, store."""
+def ingest_repo(self, repo_id: str, github_url: str, changed_files: list = None):
+    """Main ingestion task — supports full and delta indexing."""
     tmp_dir = None
     db = None
 
@@ -103,14 +103,16 @@ def ingest_repo(self, repo_id: str, github_url: str):
         db = get_db()
         cur = db.cursor()
 
-        # Update repo status to cloning
+        is_delta = changed_files is not None and len(changed_files) > 0
+        logger.info("ingestion_started", repo_id=repo_id, delta=is_delta)
+
+        # Update status to cloning
         self.update_state(state="CLONING")
         cur.execute(
             "UPDATE repos SET status = %s WHERE id = %s",
             ("cloning", repo_id)
         )
         db.commit()
-        logger.info("cloning_repo", url=github_url)
 
         # Shallow clone
         tmp_dir = tempfile.mkdtemp()
@@ -127,14 +129,14 @@ def ingest_repo(self, repo_id: str, github_url: str):
         )
         db.commit()
 
-        # Walk files — JS and TS only
         all_chunks = []
+
         for root, dirs, files in os.walk(tmp_dir):
-            # Skip node_modules and .git
             dirs[:] = [
                 d for d in dirs
                 if d not in ["node_modules", ".git", "dist", ".angular"]
             ]
+
             for filename in files:
                 if not filename.endswith((".ts", ".js")):
                     continue
@@ -142,7 +144,12 @@ def ingest_repo(self, repo_id: str, github_url: str):
                     continue
 
                 filepath = os.path.join(root, filename)
-                rel_path = os.path.relpath(filepath, tmp_dir)
+                rel_path = os.path.relpath(filepath, tmp_dir).replace("\\", "/")
+
+                # Delta mode: skip files not in changed_files list
+                if is_delta and rel_path not in changed_files:
+                    continue
+
                 language = "typescript" if filename.endswith(".ts") else "javascript"
 
                 try:
@@ -156,6 +163,16 @@ def ingest_repo(self, repo_id: str, github_url: str):
 
                 content_hash = sha256(content)
 
+                # Delta mode: delete old chunks for this file first
+                if is_delta:
+                    cur.execute(
+                        """DELETE FROM chunks WHERE file_id IN (
+                           SELECT id FROM files WHERE repo_id = %s AND path = %s
+                        )""",
+                        (repo_id, rel_path)
+                    )
+                    db.commit()
+
                 # Upsert file record
                 cur.execute(
                     """INSERT INTO files
@@ -167,12 +184,16 @@ def ingest_repo(self, repo_id: str, github_url: str):
                 )
                 row = cur.fetchone()
                 if row is None:
-                    # File already exists — get its id
                     cur.execute(
                         "SELECT id FROM files WHERE repo_id = %s AND path = %s",
                         (repo_id, rel_path)
                     )
                     row = cur.fetchone()
+                    cur.execute(
+                        "UPDATE files SET content_hash = %s WHERE id = %s",
+                        (content_hash, row[0])
+                    )
+
                 file_id = str(row[0])
                 db.commit()
 
@@ -215,7 +236,6 @@ def ingest_repo(self, repo_id: str, github_url: str):
                     (file_id,)
                 )
                 db.commit()
-
                 all_chunks.extend(
                     [(c["db_id"], c["content"]) for c in chunks]
                 )
@@ -229,14 +249,12 @@ def ingest_repo(self, repo_id: str, github_url: str):
         db.commit()
         logger.info("embedding_chunks", count=len(all_chunks))
 
-        # Batch embed (32 at a time)
         BATCH_SIZE = 32
         for i in range(0, len(all_chunks), BATCH_SIZE):
             batch = all_chunks[i:i + BATCH_SIZE]
             chunk_ids = [b[0] for b in batch]
             texts = [b[1] for b in batch]
-
-            vectors =  get_model().encode(
+            vectors = get_model().encode(
                 texts, normalize_embeddings=True
             ).tolist()
 
@@ -252,17 +270,28 @@ def ingest_repo(self, repo_id: str, github_url: str):
             )
             db.commit()
 
-        # Mark all files as embedded + cache content hashes
+        # Cache content hashes in Redis
+        for root, dirs, files in os.walk(tmp_dir):
+            dirs[:] = [d for d in dirs if d not in ["node_modules", ".git"]]
+            for filename in files:
+                if not filename.endswith((".ts", ".js")):
+                    continue
+                filepath = os.path.join(root, filename)
+                try:
+                    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                    h = sha256(content)
+                    redis.setex(f"embed:cache:{h}", 86400 * 7, "1")
+                except Exception:
+                    pass
+
+        # Mark completed
         cur.execute(
-            """UPDATE files SET index_status = 'embedded'
-               WHERE repo_id = %s""",
+            "UPDATE files SET index_status = 'embedded' WHERE repo_id = %s",
             (repo_id,)
         )
-
-        # Update repo as completed
         cur.execute(
-            """UPDATE repos
-               SET status = %s, last_indexed_commit = %s
+            """UPDATE repos SET status = %s, last_indexed_commit = %s
                WHERE id = %s""",
             ("completed", commit_sha, repo_id)
         )
@@ -272,7 +301,8 @@ def ingest_repo(self, repo_id: str, github_url: str):
         return {
             "status": "completed",
             "chunks": len(all_chunks),
-            "repo_id": repo_id
+            "repo_id": repo_id,
+            "delta": is_delta
         }
 
     except Exception as e:

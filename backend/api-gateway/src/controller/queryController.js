@@ -12,7 +12,7 @@ const client = new OpenAI({
 
 const enc = get_encoding('cl100k_base');
 
-// ─── Token guard ─────────────────────────────────────────
+// ─── Token guard ──────────────────────────────────────────
 function trimToContextLimit(chunks, question, limit = 12000) {
     let tokens = enc.encode(question).length;
     const kept = [];
@@ -25,7 +25,7 @@ function trimToContextLimit(chunks, question, limit = 12000) {
     return kept;
 }
 
-// ─── Reciprocal Rank Fusion ────────────────────────────────
+// ─── Reciprocal Rank Fusion ───────────────────────────────
 function reciprocalRankFusion(vectorResults, textResults, k = 60) {
     const scores = {};
     const lookup = {};
@@ -46,14 +46,33 @@ function reciprocalRankFusion(vectorResults, textResults, k = 60) {
         .map(([id]) => lookup[id]);
 }
 
-// ─── POST /api/query ───────────────────────────────────────
+// ─── Parse LLM response safely ────────────────────────────
+function parseLLMResponse(raw) {
+    // Strip <think>...</think> reasoning blocks
+    raw = raw.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+    // Strip markdown code blocks
+    raw = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    // Extract JSON object
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+        throw new Error('No JSON found in LLM response');
+    }
+
+    return JSON.parse(jsonMatch[0]);
+}
+
+// ─── POST /api/query ──────────────────────────────────────
 async function queryRepo(req, res, next) {
     try {
         const { question, repo_id } = req.body;
         const userId = req.user.id;
 
         if (!question || !repo_id) {
-            return res.status(400).json({ error: 'question and repo_id are required' });
+            return res.status(400).json({
+                error: 'question and repo_id are required'
+            });
         }
 
         // 1. Get embedding from Python worker
@@ -68,26 +87,26 @@ async function queryRepo(req, res, next) {
         // 2. Vector search
         const vectorResults = await pool.query(
             `SELECT c.id as chunk_id, c.content, c.type, c.name,
-              c.start_line, c.end_line, f.path,
-              e.embedding <=> $1 AS distance
-       FROM embeddings e
-       JOIN chunks c ON c.id = e.chunk_id
-       JOIN files f ON f.id = c.file_id
-       WHERE f.repo_id = $2
-       ORDER BY distance ASC
-       LIMIT 50`,
+                    c.start_line, c.end_line, f.path,
+                    e.embedding <=> $1 AS distance
+             FROM embeddings e
+             JOIN chunks c ON c.id = e.chunk_id
+             JOIN files f ON f.id = c.file_id
+             WHERE f.repo_id = $2
+             ORDER BY distance ASC
+             LIMIT 50`,
             [vectorStr, repo_id]
         );
 
         // 3. Full-text search
         const textResults = await pool.query(
             `SELECT c.id as chunk_id, c.content, c.type, c.name,
-              c.start_line, c.end_line, f.path
-       FROM chunks c
-       JOIN files f ON f.id = c.file_id
-       WHERE f.repo_id = $1
-         AND c.content_tsv @@ websearch_to_tsquery('english', $2)
-       LIMIT 50`,
+                    c.start_line, c.end_line, f.path
+             FROM chunks c
+             JOIN files f ON f.id = c.file_id
+             WHERE f.repo_id = $1
+               AND c.content_tsv @@ websearch_to_tsquery('english', $2)
+             LIMIT 50`,
             [repo_id, question]
         );
 
@@ -113,38 +132,35 @@ async function queryRepo(req, res, next) {
             )
             .join('\n\n---\n\n');
 
-        // 7. GROQ LLM with JSON mode
+        // 7. Groq LLM generation
         const completion = await client.chat.completions.create({
-            model: 'llama-3.3-70b-versatile',
-            response_format: { type: 'json_object' },
+            model: 'qwen/qwen3.6-27b',
             messages: [
                 {
                     role: 'system',
                     content: `You are a codebase assistant. Answer using ONLY the provided code snippets.
-Return JSON with this exact shape:
-{
-  "answer": "your explanation here",
-  "citations": [
-    { "file": "path/to/file.ts", "startLine": 10, "endLine": 25, "summary": "what this code does" }
-  ]
-}`
+You MUST respond with valid JSON only — no explanation, no markdown, no backticks, no <think> tags.
+Return exactly this shape:
+{"answer": "your explanation here", "citations": [{"file": "path/to/file.ts", "startLine": 10, "endLine": 25, "summary": "what this code does"}]}`
                 },
                 {
                     role: 'user',
-                    content: `Code snippets:\n\n${context}\n\nQuestion: ${question}`
+                    content: `Code snippets:\n\n${context}\n\nQuestion: ${question}\n\nRespond with JSON only:`
                 }
             ],
             temperature: 0.1,
             max_tokens: 4096
         });
 
-        const raw = completion.choices[0].message.content;
-        const { answer, citations } = JSON.parse(raw);
+        // 8. Parse response safely
+        const { answer, citations } = parseLLMResponse(
+            completion.choices[0].message.content
+        );
 
-        // 8. Store query in DB
+        // 9. Store query in DB
         await pool.query(
             `INSERT INTO queries (user_id, repo_id, question, answer, sources)
-       VALUES ($1, $2, $3, $4, $5)`,
+             VALUES ($1, $2, $3, $4, $5)`,
             [userId, repo_id, question, answer, JSON.stringify(citations)]
         );
 
@@ -153,20 +169,21 @@ Return JSON with this exact shape:
         res.json({ answer, citations });
 
     } catch (err) {
+        logger.error('query_failed', { error: err.message });
         next(err);
     }
 }
 
-// ─── GET /api/query/:repo_id/history ──────────────────────
+// ─── GET /api/query/:repo_id/history ─────────────────────
 async function getHistory(req, res, next) {
     try {
         const { repo_id } = req.params;
         const result = await pool.query(
             `SELECT id, question, answer, sources, created_at
-       FROM queries
-       WHERE repo_id = $1 AND user_id = $2
-       ORDER BY created_at DESC
-       LIMIT 20`,
+             FROM queries
+             WHERE repo_id = $1 AND user_id = $2
+             ORDER BY created_at DESC
+             LIMIT 20`,
             [repo_id, req.user.id]
         );
         res.json({ queries: result.rows });

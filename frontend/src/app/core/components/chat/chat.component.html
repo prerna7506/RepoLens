@@ -1,0 +1,130 @@
+<div class="chat-layout">
+
+  <!-- Left: File Tree -->
+  <div class="left-panel">
+    <app-file-tree
+      [repoId]="repoId"
+      (fileSelected)="onFileSelected($event)">
+    </app-file-tree>
+  </div>
+
+  <!-- Center: Chat -->
+  <div class="center-panel">
+    <div class="chat-header">
+      <h2>Ask about this codebase</h2>
+      <div class="presence-bar">
+        @for (user of activeUsers; track user.userId) {
+          <div class="avatar-chip" [title]="user.username">
+            {{ user.username[0].toUpperCase() }}
+          </div>
+        }
+        @if (activeUsers.length > 0) {
+          <span class="viewing-text">
+            {{ activeUsers.length }} other(s) viewing
+          </span>
+        }
+        <button (click)="showSettings = !showSettings" class="settings-toggle">
+          ⚙️
+        </button>
+      </div>
+    </div>
+
+    @if (showSettings) {
+      <div class="settings-overlay">
+        <app-repo-settings
+          [repoId]="repoId"
+          [repoUrl]="repoUrl"
+          (deleted)="goBack()"
+          (reindexed)="showSettings = false">
+        </app-repo-settings>
+      </div>
+    }
+
+    <div class="messages" id="chat-messages">
+      @if (messages.length === 0) {
+        <div class="empty-state">
+          <div class="empty-icon">💬</div>
+          <p>Ask anything about this codebase</p>
+          <div class="suggestions">
+            <button (click)="question='How does routing work?'; ask()">
+              How does routing work?
+            </button>
+            <button (click)="question='What middleware is used?'; ask()">
+              What middleware is used?
+            </button>
+            <button (click)="question='How is error handling done?'; ask()">
+              How is error handling done?
+            </button>
+          </div>
+        </div>
+      }
+
+      @for (msg of messages; track $index) {
+        @if (msg.role === 'shared') {
+          <div class="message shared">
+            <div class="shared-label">🔴 {{ msg.username }} asked</div>
+            <div class="message-content">{{ msg.content }}</div>
+            @if (msg.citations && msg.citations.length > 0) {
+              <div class="citations">
+                <div class="citations-title">📎 Sources</div>
+                @for (cite of msg.citations; track $index) {
+                  <div class="citation-card">
+                    <div class="citation-file">📄 {{ cite.file }}</div>
+                    <div class="citation-lines">Lines {{ cite.startLine }}–{{ cite.endLine }}</div>
+                    <div class="citation-summary">{{ cite.summary }}</div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="message"
+               [class.user]="msg.role === 'user'"
+               [class.assistant]="msg.role === 'assistant'">
+            @if (msg.loading) {
+              <div class="loading-dots">
+                <span></span><span></span><span></span>
+              </div>
+            } @else {
+              <div class="message-content">{{ msg.content }}</div>
+              @if (msg.citations && msg.citations.length > 0) {
+                <div class="citations">
+                  <div class="citations-title">📎 Sources</div>
+                  @for (cite of msg.citations; track $index) {
+                    <div class="citation-card">
+                      <div class="citation-file">📄 {{ cite.file }}</div>
+                      <div class="citation-lines">Lines {{ cite.startLine }}–{{ cite.endLine }}</div>
+                      <div class="citation-summary">{{ cite.summary }}</div>
+                    </div>
+                  }
+                </div>
+              }
+            }
+          </div>
+        }
+      }
+    </div>
+
+    <div class="input-area">
+      <textarea
+        [(ngModel)]="question"
+        (keydown)="onKeydown($event)"
+        placeholder="Ask anything... (Enter to send)"
+        rows="2"
+        [disabled]="isLoading">
+      </textarea>
+      <button (click)="ask()" [disabled]="isLoading || !question.trim()">
+        @if (isLoading) { ⏳ } @else { ➤ }
+      </button>
+    </div>
+  </div>
+
+  <!-- Right: Query History -->
+  <div class="right-panel">
+    <app-query-history
+      [repoId]="repoId"
+      (questionSelected)="onHistorySelected($event)">
+    </app-query-history>
+  </div>
+
+</div>

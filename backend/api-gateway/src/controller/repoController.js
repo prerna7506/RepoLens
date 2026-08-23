@@ -102,4 +102,65 @@ async function getTaskStatus(req, res, next) {
   }
 }
 
-module.exports = { createRepo, getRepo, listRepos, getTaskStatus };
+async function getRepoFiles(req, res, next) {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT path, language, index_status
+       FROM files
+       WHERE repo_id = $1
+       ORDER BY path ASC`,
+      [id]
+    );
+    res.json({ files: result.rows });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteRepo(req, res, next) {
+  try {
+    const { id } = req.params;
+    await pool.query(
+      'DELETE FROM repos WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function reindexRepo(req, res, next) {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      'SELECT clone_url FROM repos WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'Repo not found' });
+    }
+
+    const { clone_url } = result.rows[0];
+    const workerResponse = await axios.post(
+      `${WORKER_URL}/ingest`,
+      { repo_id: id, clone_url }
+    );
+
+    await pool.query(
+      'UPDATE repos SET status = $1 WHERE id = $2',
+      ['queued', id]
+    );
+
+    res.json({ task_id: workerResponse.data.task_id });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  createRepo, getRepo, listRepos,
+  getTaskStatus, getRepoFiles,
+  deleteRepo, reindexRepo
+};

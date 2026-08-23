@@ -10,9 +10,14 @@ const { requireAuth } = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
 const healthRoutes = require('./routes/health');
 const repoRoutes = require('./routes/repos');
-const queryRoutes = require('./routes/query');  // ← add this
+const queryRoutes = require('./routes/query');
+const webhookRoutes = require('./routes/webhooks');
 
 const app = express();
+
+// Webhook route MUST come before express.json()
+// Raw body is needed for signature verification
+app.use('/webhooks', webhookRoutes);
 
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:4200',
@@ -26,7 +31,7 @@ app.use(requestLogger);
 app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
 app.use('/api/repos', repoRoutes);
-app.use('/api/query', queryRoutes);  // ← add this
+app.use('/api/query', queryRoutes);
 
 app.get('/api/me', requireAuth, (req, res) => {
   res.json({ user: req.user });

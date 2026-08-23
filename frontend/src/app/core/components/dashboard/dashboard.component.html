@@ -1,15 +1,52 @@
 <div class="dashboard">
   <header class="header">
     <h1>RepoLens</h1>
-    <div class="user-info" *ngIf="username">
-      <img *ngIf="avatarUrl" [src]="avatarUrl" class="avatar" />
-      <span>{{ username }}</span>
-      <button (click)="auth.logout()" class="logout-btn">Logout</button>
+    <div class="user-info">
+      @if (username) {
+        <span>{{ username }}</span>
+        <button (click)="auth.logout()" class="logout-btn">Logout</button>
+      }
     </div>
   </header>
 
   <main class="main">
-    <h2>Welcome, {{ username }}!</h2>
-    <p>Your dashboard is ready. Repo analysis coming in Phase 2.</p>
+    <h2>Your Repositories</h2>
+    @if (repos.length === 0) {
+      <p class="empty">No repositories yet. Add one below!</p>
+    }
+
+    <div class="repo-list">
+      @for (repo of repos; track repo.id) {
+        <div class="repo-card">
+          <div class="repo-info">
+            <span class="repo-url">{{ repo.github_url }}</span>
+            <span class="status-badge" [class]="repo.status">
+              {{ repo.status }}
+            </span>
+          </div>
+          @if (repo.status === 'completed') {
+            <button (click)="openChat(repo.id)" class="chat-btn">
+              💬 Ask Questions
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="add-repo">
+      <h3>Add Repository</h3>
+      <div class="input-row">
+        <input
+          [(ngModel)]="newRepoUrl"
+          placeholder="https://github.com/owner/repo"
+          class="repo-input" />
+        <button (click)="addRepo()" [disabled]="isAdding" class="add-btn">
+          @if (isAdding) { Adding... } @else { Add Repo }
+        </button>
+      </div>
+      @if (taskStatus) {
+        <p class="task-status">Status: {{ taskStatus }}</p>
+      }
+    </div>
   </main>
 </div>

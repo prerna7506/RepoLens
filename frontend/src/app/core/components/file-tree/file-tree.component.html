@@ -1,0 +1,29 @@
+<div class="file-tree">
+  <div class="tree-header">
+    <span>📁 Files</span>
+  </div>
+  <div class="tree-body">
+    <!-- Debug: remove after confirming -->
+    <div style="font-size:10px;color:#999;padding:4px 16px;">
+      Nodes: {{ flatNodes.length }}
+    </div>
+
+    @for (node of flatNodes; track node.path) {
+      <div
+        class="tree-node"
+        [class.folder]="node.isFolder"
+        [class.selected]="selectedFile === node.path"
+        [style.padding-left.px]="12 + node.depth * 16"
+        (click)="toggle(node)">
+        <span class="icon">{{ getIcon(node) }}</span>
+        <span class="name">{{ node.name }}</span>
+      </div>
+    } @empty {
+      @if (errorMsg) {
+        <div class="error-state">{{ errorMsg }}</div>
+      } @else {
+        <div class="empty-state">Loading files...</div>
+      }
+    }
+  </div>
+</div>

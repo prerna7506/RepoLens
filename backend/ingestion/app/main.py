@@ -66,12 +66,13 @@ def get_task_status(task_id: str):
 class IngestRequest(BaseModel):
     repo_id: str
     clone_url: str
+    changed_files: list = None
 
 
 @app.post("/ingest")
 def start_ingest(req: IngestRequest):
     from app.tasks.ingest import ingest_repo
-    task = ingest_repo.delay(req.repo_id, req.clone_url)
+    task = ingest_repo.delay(req.repo_id, req.clone_url, req.changed_files)
     return {"task_id": task.id}
 
 class EmbedRequest(BaseModel):

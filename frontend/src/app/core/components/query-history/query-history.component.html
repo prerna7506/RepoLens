@@ -1,0 +1,19 @@
+<div class="history-panel">
+  <div class="history-header">
+    <span>🕐 History</span>
+    <button (click)="loadHistory()" class="refresh-btn">↻</button>
+  </div>
+
+  <div class="history-list">
+    @if (history.length === 0) {
+      <div class="empty">No queries yet</div>
+    }
+
+    @for (item of history; track item.id) {
+      <div class="history-item" (click)="select(item)">
+        <div class="history-question">{{ item.question }}</div>
+        <div class="history-time">{{ timeAgo(item.created_at) }}</div>
+      </div>
+    }
+  </div>
+</div>
