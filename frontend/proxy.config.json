@@ -1,4 +1,11 @@
 {
+  "/api": {
+    "target": "http://localhost:3000",
+    "secure": false,
+    "changeOrigin": true,
+    "timeout": 300000,
+    "proxyTimeout": 300000
+  },
   "/auth/github": {
     "target": "http://localhost:3000",
     "secure": false,
@@ -13,12 +20,6 @@
     "target": "http://localhost:3000",
     "secure": false,
     "changeOrigin": true
-  },
-  "/api": {
-    "target": "http://localhost:3000",
-    "secure": false,
-    "changeOrigin": true,
-    "logLevel": "debug"
   },
   "/socket.io": {
     "target": "http://localhost:3000",

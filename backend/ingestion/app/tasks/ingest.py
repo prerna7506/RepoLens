@@ -61,36 +61,75 @@ def parse_ast(code: str, language: str):
 
     def get_name(node):
         for child in node.children:
-            if child.type == "identifier":
+            if child.type in ("identifier", "property_identifier"):
                 return node_text(child)
         return "anonymous"
 
     def walk(node, parent_id=None):
         chunk_type = None
-        if node.type == "function_declaration":
+
+        if node.type in (
+            "function_declaration",
+            "function_expression",
+            "generator_function_declaration"
+        ):
             chunk_type = "function"
+
         elif node.type == "class_declaration":
             chunk_type = "class"
+
         elif node.type == "method_definition":
             chunk_type = "method"
+
         elif node.type == "import_statement":
             chunk_type = "import"
 
+        elif node.type == "arrow_function":
+            parent = node.parent
+            if parent and parent.type == "variable_declarator":
+                chunk_type = "function"
+
+        elif node.type == "variable_declaration":
+            for child in node.children:
+                if child.type == "variable_declarator":
+                    for grandchild in child.children:
+                        if grandchild.type in (
+                            "function_expression",
+                            "arrow_function",
+                            "object_expression"
+                        ):
+                            chunk_type = "function"
+
         if chunk_type:
-            chunks.append({
-                "type": chunk_type,
-                "name": get_name(node),
-                "content": node_text(node),
-                "start_line": node.start_point[0] + 1,
-                "end_line": node.end_point[0] + 1,
-                "parent_id": parent_id
-            })
+            content = node_text(node)
+            if len(content.strip()) > 30:
+                chunks.append({
+                    "type": chunk_type,
+                    "name": get_name(node),
+                    "content": content,
+                    "start_line": node.start_point[0] + 1,
+                    "end_line": node.end_point[0] + 1,
+                    "parent_id": parent_id
+                })
 
         for child in node.children:
             walk(child, parent_id)
 
     walk(tree.root_node)
+
+    # Fallback: if no chunks found store whole file as one chunk
+    if not chunks and len(code.strip()) > 50:
+        chunks.append({
+            "type": "function",
+            "name": "module",
+            "content": code[:3000],
+            "start_line": 1,
+            "end_line": code.count('\n') + 1,
+            "parent_id": None
+        })
+
     return chunks
+
 
 # ── Main Celery task ───────────────────────────────────────
 @celery_app.task(bind=True, name="ingest_repo")
@@ -106,7 +145,6 @@ def ingest_repo(self, repo_id: str, github_url: str, changed_files: list = None)
         is_delta = changed_files is not None and len(changed_files) > 0
         logger.info("ingestion_started", repo_id=repo_id, delta=is_delta)
 
-        # Update status to cloning
         self.update_state(state="CLONING")
         cur.execute(
             "UPDATE repos SET status = %s WHERE id = %s",
@@ -121,7 +159,6 @@ def ingest_repo(self, repo_id: str, github_url: str, changed_files: list = None)
         )
         commit_sha = repo.head.commit.hexsha
 
-        # Update status to parsing
         self.update_state(state="PARSING")
         cur.execute(
             "UPDATE repos SET status = %s WHERE id = %s",
@@ -134,13 +171,13 @@ def ingest_repo(self, repo_id: str, github_url: str, changed_files: list = None)
         for root, dirs, files in os.walk(tmp_dir):
             dirs[:] = [
                 d for d in dirs
-                if d not in ["node_modules", ".git", "dist", ".angular"]
+                if d not in ["node_modules", ".git", "dist", ".angular", "__pycache__"]
             ]
 
             for filename in files:
                 if not filename.endswith((".ts", ".js")):
                     continue
-                if filename.endswith((".spec.ts", ".test.ts", ".test.js")):
+                if filename.endswith((".spec.ts", ".test.ts", ".test.js", ".min.js")):
                     continue
 
                 filepath = os.path.join(root, filename)

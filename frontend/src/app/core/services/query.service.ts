@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { timeout } from 'rxjs/operators';
 
 export interface Citation {
   file: string;
@@ -30,7 +31,9 @@ export class QueryService {
     return this.http.post<QueryResponse>('/api/query', {
       question,
       repo_id: repoId
-    });
+    }).pipe(
+      timeout(300000) // 5 minute timeout
+    );
   }
 
   getHistory(repoId: string): Observable<{ queries: QueryHistory[] }> {
