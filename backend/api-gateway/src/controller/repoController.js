@@ -104,11 +104,18 @@ async function createRepo(req, res, next) {
 
 async function listRepos(req, res, next) {
   try {
+    // NOTE: added the same LEFT JOIN + COUNT that getRepo() already uses,
+    // so file_count is populated in the list view too (dashboard cards and
+    // the chat composer's "Index loaded for ... (N files)" line both read
+    // this field and were previously always getting undefined here).
     const result = await pool.query(
-      `SELECT id, github_url, status, task_id, created_at, last_indexed_commit
-       FROM repos
-       WHERE user_id = $1
-       ORDER BY created_at DESC`,
+      `SELECT r.id, r.github_url, r.status, r.task_id, r.created_at,
+              r.last_indexed_commit, COUNT(f.id) as file_count
+       FROM repos r
+       LEFT JOIN files f ON f.repo_id = r.id
+       WHERE r.user_id = $1
+       GROUP BY r.id
+       ORDER BY r.created_at DESC`,
       [req.user.id]
     );
     res.json({ repos: result.rows });
@@ -164,6 +171,68 @@ async function getRepoFiles(req, res, next) {
   }
 }
 
+/**
+ * Returns raw file content for the code viewer.
+ *
+ * The ingestion worker only ever stores parsed AST *chunks* (function/class
+ * bodies with line ranges) in Postgres — never the full file text — so
+ * there's nothing local to read the whole file from. Instead this fetches
+ * the file straight from GitHub at the commit that was actually indexed
+ * (`last_indexed_commit`), so line numbers line up with what got chunked.
+ *
+ * Caveats:
+ * - Only works for public repos, or private repos if you later add a stored
+ *   GitHub token and an Authorization header to the raw.githubusercontent.com
+ *   request. Right now a private repo will 404 here.
+ * - Falls back to `HEAD` if a repo hasn't finished indexing yet (no commit
+ *   recorded), which may not match line numbers shown elsewhere.
+ */
+async function getFileContent(req, res, next) {
+  try {
+    const { id } = req.params;
+    const filePath = req.query.path;
+
+    if (!filePath) {
+      return res.status(400).json({ error: 'path query parameter is required' });
+    }
+    if (filePath.includes('..')) {
+      return res.status(400).json({ error: 'Invalid path' });
+    }
+
+    const result = await pool.query(
+      `SELECT github_url, last_indexed_commit FROM repos WHERE id = $1 AND user_id = $2`,
+      [id, req.user.id]
+    );
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'Repo not found' });
+    }
+
+    const { github_url, last_indexed_commit } = result.rows[0];
+    const match = github_url.match(/github\.com\/([\w.-]+)\/([\w.-]+?)(\.git)?$/);
+    if (!match) {
+      return res.status(400).json({ error: 'Could not parse GitHub URL' });
+    }
+    const [, owner, repoName] = match;
+    const ref = last_indexed_commit || 'HEAD';
+
+    const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+    const rawUrl = `https://raw.githubusercontent.com/${owner}/${repoName}/${ref}/${encodedPath}`;
+
+    const response = await axios.get(rawUrl, {
+      // Force plain text — otherwise axios will JSON.parse files like
+      // package.json into an object instead of returning a string.
+      transformResponse: (data) => data
+    });
+
+    res.json({ content: response.data });
+  } catch (err) {
+    if (err.response && err.response.status === 404) {
+      return res.status(404).json({ error: 'File not found in repository at the indexed commit' });
+    }
+    next(err);
+  }
+}
+
 async function deleteRepo(req, res, next) {
   try {
     const { id } = req.params;
@@ -211,6 +280,6 @@ async function reindexRepo(req, res, next) {
 
 module.exports = {
   createRepo, getRepo, listRepos,
-  getTaskStatus, getRepoFiles,
+  getTaskStatus, getRepoFiles, getFileContent,
   deleteRepo, reindexRepo
 };

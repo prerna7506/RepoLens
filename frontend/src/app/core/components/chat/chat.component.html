@@ -1,33 +1,66 @@
-<div class="chat-layout">
+<div class="chat-shell">
 
-  <!-- Left: File Tree -->
-  <div class="left-panel">
-    <app-file-tree
-      [repoId]="repoId"
-      (fileSelected)="onFileSelected($event)">
-    </app-file-tree>
-  </div>
+  <!-- Center: AI Assistant -->
+  <section class="panel assistant-panel">
+    <header class="assistant-header">
+      <button class="icon-btn back-btn" title="Back to dashboard" (click)="goBack()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </button>
 
-  <!-- Center: Chat -->
-  <div class="center-panel">
-    <div class="chat-header">
-      <h2>Ask about this codebase</h2>
-      <div class="presence-bar">
-        @for (user of activeUsers; track user.userId) {
-          <div class="avatar-chip" [title]="user.username">
-            {{ user.username[0].toUpperCase() }}
+      <div class="assistant-title">
+        <span class="assistant-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v1a4 4 0 0 0 8 0V6a4 4 0 0 0-4-4Z"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+        </span>
+        <h2>AI Assistant</h2>
+      </div>
+
+      <div class="analyzing-pill">
+        <span class="pill-dot"></span>
+        <span class="pill-label">ANALYZING:</span>
+        <span class="pill-value">{{ repoLabel }}</span>
+      </div>
+
+      <div class="header-actions">
+        @if (activeUsers.length > 0) {
+          <div class="presence-chips" [title]="activeUsers.length + ' other(s) viewing'">
+            @for (user of activeUsers.slice(0, 3); track user.userId) {
+              <span class="avatar-chip">{{ user.username[0].toUpperCase() }}</span>
+            }
+            @if (activeUsers.length > 3) {
+              <span class="avatar-chip more">+{{ activeUsers.length - 3 }}</span>
+            }
           </div>
         }
-        @if (activeUsers.length > 0) {
-          <span class="viewing-text">
-            {{ activeUsers.length }} other(s) viewing
-          </span>
-        }
-        <button (click)="showSettings = !showSettings" class="settings-toggle">
-          ⚙️
+        <button class="icon-btn" title="Files" (click)="toggleDrawer('files')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        </button>
+        <button class="icon-btn" title="Search history" (click)="toggleDrawer('history')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+        </button>
+        <button class="icon-btn" title="Repo settings" (click)="showSettings = !showSettings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
         </button>
       </div>
-    </div>
+    </header>
+
+    @if (activeDrawer) {
+      <div class="drawer-backdrop" (click)="activeDrawer = null"></div>
+      <div class="drawer">
+        <div class="drawer-header">
+          <span>{{ activeDrawer === 'files' ? 'Files' : 'Search History' }}</span>
+          <button class="icon-btn" (click)="activeDrawer = null">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="drawer-body">
+          @if (activeDrawer === 'files') {
+            <app-file-tree [repoId]="repoId" (fileSelected)="onFileSelected($event)"></app-file-tree>
+          } @else {
+            <app-query-history [repoId]="repoId" (questionSelected)="onHistorySelected($event)"></app-query-history>
+          }
+        </div>
+      </div>
+    }
 
     @if (showSettings) {
       <div class="settings-overlay">
@@ -43,88 +76,146 @@
     <div class="messages" id="chat-messages">
       @if (messages.length === 0) {
         <div class="empty-state">
-          <div class="empty-icon">💬</div>
+          <div class="empty-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
           <p>Ask anything about this codebase</p>
           <div class="suggestions">
-            <button (click)="question='How does routing work?'; ask()">
-              How does routing work?
-            </button>
-            <button (click)="question='What middleware is used?'; ask()">
-              What middleware is used?
-            </button>
-            <button (click)="question='How is error handling done?'; ask()">
-              How is error handling done?
-            </button>
+            <button (click)="question='How does routing work?'; ask()">How does routing work?</button>
+            <button (click)="question='What middleware is used?'; ask()">What middleware is used?</button>
+            <button (click)="question='How is error handling done?'; ask()">How is error handling done?</button>
           </div>
         </div>
       }
 
       @for (msg of messages; track $index) {
         @if (msg.role === 'shared') {
-          <div class="message shared">
-            <div class="shared-label">🔴 {{ msg.username }} asked</div>
-            <div class="message-content">{{ msg.content }}</div>
-            @if (msg.citations && msg.citations.length > 0) {
-              <div class="citations">
-                <div class="citations-title">📎 Sources</div>
+          <div class="message-block shared">
+            <div class="shared-label">
+              <span class="live-dot"></span> {{ msg.username }} asked
+            </div>
+            <div class="message-content" [innerHTML]="msg.content | formatMessage"></div>
+            @if (msg.citations?.length) {
+              <div class="citation-chips">
                 @for (cite of msg.citations; track $index) {
-                  <div class="citation-card">
-                    <div class="citation-file">📄 {{ cite.file }}</div>
-                    <div class="citation-lines">Lines {{ cite.startLine }}–{{ cite.endLine }}</div>
-                    <div class="citation-summary">{{ cite.summary }}</div>
-                  </div>
+                  <button class="citation-chip" (click)="jumpToCitation(cite)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Lines {{ cite.startLine }}–{{ cite.endLine }}
+                  </button>
                 }
               </div>
             }
           </div>
+        } @else if (msg.role === 'user') {
+          <div class="message-block user">
+            <div class="message-content">{{ msg.content }}</div>
+          </div>
         } @else {
-          <div class="message"
-               [class.user]="msg.role === 'user'"
-               [class.assistant]="msg.role === 'assistant'">
-            @if (msg.loading) {
-              <div class="loading-dots">
-                <span></span><span></span><span></span>
-              </div>
-            } @else {
-              <div class="message-content">{{ msg.content }}</div>
-              @if (msg.citations && msg.citations.length > 0) {
-                <div class="citations">
-                  <div class="citations-title">📎 Sources</div>
-                  @for (cite of msg.citations; track $index) {
-                    <div class="citation-card">
-                      <div class="citation-file">📄 {{ cite.file }}</div>
-                      <div class="citation-lines">Lines {{ cite.startLine }}–{{ cite.endLine }}</div>
-                      <div class="citation-summary">{{ cite.summary }}</div>
+          <div class="message-block assistant">
+            <div class="assistant-avatar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v1a4 4 0 0 0 8 0V6a4 4 0 0 0-4-4Z"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+            </div>
+            <div class="assistant-body">
+              <div class="assistant-name">REPOLENS AI</div>
+              @if (msg.loading) {
+                <div class="loading-dots"><span></span><span></span><span></span></div>
+              } @else {
+                <div class="message-content" [innerHTML]="msg.content | formatMessage"></div>
+                @if (msg.citations?.length) {
+                  <div class="references">
+                    <div class="references-title">REFERENCES</div>
+                    <div class="citation-chips">
+                      @for (cite of msg.citations; track $index) {
+                        <button class="citation-chip" (click)="jumpToCitation(cite)">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                          {{ fileName(cite.file) }} · Lines {{ cite.startLine }}–{{ cite.endLine }}
+                        </button>
+                      }
                     </div>
-                  }
-                </div>
+                  </div>
+                }
               }
-            }
+            </div>
           </div>
         }
       }
     </div>
 
-    <div class="input-area">
-      <textarea
-        [(ngModel)]="question"
-        (keydown)="onKeydown($event)"
-        placeholder="Ask anything... (Enter to send)"
-        rows="2"
-        [disabled]="isLoading">
-      </textarea>
-      <button (click)="ask()" [disabled]="isLoading || !question.trim()">
-        @if (isLoading) { ⏳ } @else { ➤ }
-      </button>
+    <div class="composer">
+      <div class="composer-meta">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+        Index loaded for {{ repoLabel }} ({{ repoFileCount }} files)
+      </div>
+      <div class="composer-input">
+        <textarea
+          [(ngModel)]="question"
+          (keydown)="onKeydown($event)"
+          placeholder="Follow up or ask another question..."
+          rows="1"
+          [disabled]="isLoading">
+        </textarea>
+        <button class="send-btn" (click)="ask()" [disabled]="isLoading || !question.trim()">
+          @if (isLoading) {
+            <svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+          } @else {
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          }
+        </button>
+      </div>
+      <p class="disclaimer">RepoLens AI can make mistakes. Verify critical code.</p>
     </div>
-  </div>
+  </section>
 
-  <!-- Right: Query History -->
-  <div class="right-panel">
-    <app-query-history
-      [repoId]="repoId"
-      (questionSelected)="onHistorySelected($event)">
-    </app-query-history>
-  </div>
+  <!-- Right: Code viewer -->
+  <section class="panel code-panel">
+    @if (openTabs.length === 0) {
+      <div class="code-empty">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <p>Open a file from a citation or the file browser to view it here.</p>
+        <button class="ghost-btn" (click)="toggleDrawer('files')">Browse files</button>
+      </div>
+    } @else {
+      <div class="code-tabs-row">
+        <div class="code-tabs">
+          @for (tab of openTabs; track tab.path; let i = $index) {
+            <button class="code-tab" [class.active]="i === activeTabIndex" (click)="selectTab(i)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span>{{ fileName(tab.path) }}</span>
+              <span class="tab-close" (click)="closeTab(i, $event)">✕</span>
+            </button>
+          }
+        </div>
+        <div class="breadcrumb">
+          @for (part of breadcrumb(activeTab?.path || ''); track $index; let last = $last) {
+            <span [class.last]="last">{{ part }}</span>
+            @if (!last) { <span class="sep">›</span> }
+          }
+        </div>
+      </div>
 
+      @if (activeFileViewers.length > 0) {
+        <div class="presence-strip">
+          <span class="presence-dot"></span>
+          <strong>{{ activeFileViewers[0].username }}</strong> is viewing this file
+        </div>
+      }
+
+      <div class="code-scroll" #codeScroll>
+        @if (activeTab; as tab) {
+          @if (tab.loading) {
+            <div class="code-loading">Loading file…</div>
+          } @else if (tab.error) {
+            <div class="code-loading">{{ tab.error }}</div>
+          } @else {
+            @for (line of tab.lines; track $index; let i = $index) {
+              <div class="code-line" [class.highlighted]="isHighlighted(i + 1)" [attr.data-line]="i + 1">
+                <span class="line-number">{{ i + 1 }}</span>
+                <span class="line-content" [innerHTML]="line"></span>
+              </div>
+            }
+          }
+        }
+      </div>
+    }
+  </section>
 </div>

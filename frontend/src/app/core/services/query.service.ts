@@ -41,4 +41,11 @@ export class QueryService {
       `/api/query/${repoId}/history`
     );
   }
+
+  getFileContent(repoId: string, path: string): Observable<{ content: string }> {
+    return this.http.get<{ content: string }>(
+      `/api/repos/${repoId}/files/content`,
+      { params: { path } }
+    );
+  }
 }

@@ -1,12 +1,15 @@
-import { Component, OnInit, OnDestroy, Inject, PLATFORM_ID } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject, PLATFORM_ID, ElementRef, ViewChild } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { QueryService, Citation } from '../../services/query.service';
 import { SocketService } from '../../services/socket.service';
+import { RepoService, Repo } from '../../services/repo.service';
 import { FileTreeComponent } from '../file-tree/file-tree.component';
 import { QueryHistoryComponent } from '../query-history/query-history.component';
 import { RepoSettingsComponent } from '../repo-settings/repo-settings.component';
+import { FormatMessagePipe } from '../../pipe/format-message-pipe';
 
 interface Message {
   role: 'user' | 'assistant' | 'shared';
@@ -20,6 +23,15 @@ interface Message {
 interface ActiveUser {
   userId: string;
   username: string;
+  // Populated by a 'file-cursor' socket event, if wired up server-side (see note below).
+  currentFile?: string;
+}
+
+interface FileTab {
+  path: string;
+  lines: SafeHtml[];
+  loading: boolean;
+  error?: string;
 }
 
 @Component({
@@ -29,7 +41,8 @@ interface ActiveUser {
     FormsModule,
     FileTreeComponent,
     QueryHistoryComponent,
-    RepoSettingsComponent
+    RepoSettingsComponent,
+    FormatMessagePipe
   ],
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.css'
@@ -37,6 +50,7 @@ interface ActiveUser {
 export class ChatComponent implements OnInit, OnDestroy {
   repoId = '';
   repoUrl = '';
+  repoFileCount: number | string = '—';
   question = '';
   messages: Message[] = [];
   isLoading = false;
@@ -44,16 +58,31 @@ export class ChatComponent implements OnInit, OnDestroy {
   showSettings = false;
   selectedFile = '';
 
+  // The new design shows only two panels (Assistant | Code Viewer).
+  // File tree & search history now live in a slide-over drawer instead
+  // of fixed side columns, so no functionality is lost.
+  activeDrawer: 'files' | 'history' | null = null;
+
+  // Code viewer state
+  openTabs: FileTab[] = [];
+  activeTabIndex = 0;
+  highlightRange: { start: number; end: number } | null = null;
+
+  @ViewChild('codeScroll') codeScrollRef?: ElementRef<HTMLDivElement>;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private queryService: QueryService,
     private socketService: SocketService,
+    private repoService: RepoService,
+    private sanitizer: DomSanitizer,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
   ngOnInit() {
     this.repoId = this.route.snapshot.paramMap.get('repoId') || '';
+    this.loadRepoMeta();
 
     if (isPlatformBrowser(this.platformId)) {
       this.socketService.connect();
@@ -62,15 +91,41 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
   }
 
+  private loadRepoMeta() {
+    this.repoService.getRepos().subscribe({
+      next: (res) => {
+        const repo = res.repos.find((r: Repo) => r.id === this.repoId);
+        if (repo) {
+          this.repoUrl = repo.github_url;
+          this.repoFileCount = repo.file_count || '—';
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  get repoLabel(): string {
+    if (!this.repoUrl) return this.repoId;
+    try {
+      const u = new URL(this.repoUrl);
+      const [, owner, name] = u.pathname.split('/');
+      return owner && name ? `${owner}/${name}` : this.repoUrl;
+    } catch {
+      return this.repoUrl;
+    }
+  }
+
   setupSocketListeners() {
-    this.socketService.onUserJoined((data) => {
+    this.socketService.onUserJoined((data: ActiveUser) => {
       this.activeUsers.push(data);
     });
 
-    this.socketService.onUserLeft((data) => {
-      this.activeUsers = this.activeUsers.filter(
-        u => u.userId !== data.userId
-      );
+    this.socketService.onUserLeft((data: { userId: string }) => {
+      this.activeUsers = this.activeUsers.filter((u) => u.userId !== data.userId);
+    });
+    this.socketService.onFileCursor((data: { userId: string; username: string; path: string }) => {
+      const user = this.activeUsers.find((u) => u.userId === data.userId);
+      if (user) user.currentFile = data.path;
     });
 
     this.socketService.onQueryShared((data) => {
@@ -123,12 +178,8 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
-  onFileSelected(path: string) {
-    this.selectedFile = path;
-    this.socketService.emitFileCursor(path, 1);
-  }
-
   onHistorySelected(question: string) {
+    this.activeDrawer = null;
     this.question = question;
     this.ask();
   }
@@ -150,6 +201,132 @@ export class ChatComponent implements OnInit, OnDestroy {
       const el = document.getElementById('chat-messages');
       if (el) el.scrollTop = el.scrollHeight;
     }, 100);
+  }
+
+  toggleDrawer(drawer: 'files' | 'history') {
+    this.activeDrawer = this.activeDrawer === drawer ? null : drawer;
+  }
+
+  /* ── Code viewer ── */
+
+  onFileSelected(path: string) {
+    this.activeDrawer = null;
+    this.openFile(path);
+  }
+
+  openFile(path: string) {
+    this.selectedFile = path;
+    this.highlightRange = null;
+
+    const existingIndex = this.openTabs.findIndex((t) => t.path === path);
+    if (existingIndex >= 0) {
+      this.activeTabIndex = existingIndex;
+    } else {
+      const tab: FileTab = { path, lines: [], loading: true };
+      this.openTabs.push(tab);
+      this.activeTabIndex = this.openTabs.length - 1;
+      this.fetchFileContent(path, tab);
+    }
+
+    if (isPlatformBrowser(this.platformId)) {
+      this.socketService.emitFileCursor(path, 1);
+    }
+  }
+
+  closeTab(index: number, event: MouseEvent) {
+    event.stopPropagation();
+    this.openTabs.splice(index, 1);
+    if (this.activeTabIndex >= this.openTabs.length) {
+      this.activeTabIndex = Math.max(0, this.openTabs.length - 1);
+    }
+  }
+
+  selectTab(index: number) {
+    this.activeTabIndex = index;
+    this.highlightRange = null;
+    this.selectedFile = this.openTabs[index]?.path || '';
+  }
+
+  private fetchFileContent(path: string, tab: FileTab) {
+    // ASSUMPTION: QueryService needs a getFileContent() method hitting your
+    // backend's file-content route. Suggested addition to query.service.ts:
+    //
+    //   getFileContent(repoId: string, path: string) {
+    //     return this.http.get<{ content: string }>(
+    //       `/api/repos/${repoId}/files/content`,
+    //       { params: { path } }
+    //     );
+    //   }
+    this.queryService.getFileContent(this.repoId, path).subscribe({
+      next: (res: { content: string }) => {
+        tab.lines = this.highlightTs(res.content);
+        tab.loading = false;
+      },
+      error: () => {
+        tab.error = 'Could not load file content.';
+        tab.loading = false;
+      }
+    });
+  }
+
+  get activeTab(): FileTab | undefined {
+    return this.openTabs[this.activeTabIndex];
+  }
+
+  get activeFileViewers(): ActiveUser[] {
+    const path = this.activeTab?.path;
+    if (!path) return [];
+    return this.activeUsers.filter((u) => u.currentFile === path);
+  }
+
+  fileName(path: string): string {
+    const parts = path.split('/');
+    return parts[parts.length - 1] || path;
+  }
+
+  breadcrumb(path: string): string[] {
+    return path.split('/').filter(Boolean);
+  }
+
+  isHighlighted(lineNumber: number): boolean {
+    if (!this.highlightRange) return false;
+    return lineNumber >= this.highlightRange.start && lineNumber <= this.highlightRange.end;
+  }
+
+  jumpToCitation(citation: Citation) {
+    this.openFile(citation.file);
+    this.highlightRange = { start: citation.startLine, end: citation.endLine };
+
+    if (!isPlatformBrowser(this.platformId)) return;
+    setTimeout(() => {
+      const container = this.codeScrollRef?.nativeElement;
+      const target = container?.querySelector(`[data-line="${citation.startLine}"]`);
+      target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 150);
+  }
+
+  private highlightTs(code: string): SafeHtml[] {
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const keywords =
+      /\b(import|export|const|let|var|function|return|if|else|for|while|new|class|interface|extends|implements|from|as|async|await|try|catch|throw|typeof|in|of|void|this|public|private|protected|readonly)\b/g;
+    const types = /\b(string|number|boolean|any|unknown|Request|Response|NextFunction)\b/g;
+
+    return code.split('\n').map((rawLine) => {
+      let line = escapeHtml(rawLine);
+
+      line = line.replace(
+        /(&#39;|'|")((?:\\.|(?!\1).)*)\1/g,
+        (m) => `<span class="tok-string">${m}</span>`
+      );
+
+      line = line.replace(/(\/\/.*$)/, '<span class="tok-comment">$1</span>');
+      line = line.replace(keywords, '<span class="tok-keyword">$1</span>');
+      line = line.replace(types, '<span class="tok-type">$1</span>');
+
+      return this.sanitizer.bypassSecurityTrustHtml(line || '&nbsp;');
+    });
   }
 
   ngOnDestroy() {

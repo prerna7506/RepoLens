@@ -1,5 +1,6 @@
 import ssl
 from celery import Celery
+import redis as redis_client
 from app.config import REDIS_URL
 
 # Upstash already uses rediss:// — just append ssl param
