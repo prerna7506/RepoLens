@@ -345,16 +345,9 @@ def ingest_repo(self, repo_id: str, github_url: str, changed_files: list = None)
     except Exception as e:
         logger.error("ingestion_failed", error=str(e))
         if db:
-            try:
-                cur.execute(
-                    "UPDATE repos SET status = %s WHERE id = %s",
-                    ("failed", repo_id)
-                )
-                db.commit()
-            except Exception:
-                pass
+            cur.execute("UPDATE repos SET status = %s WHERE id = %s", ("failed", repo_id))
+            db.commit()
         raise
-
     finally:
         if tmp_dir and os.path.exists(tmp_dir):
             shutil.rmtree(tmp_dir, ignore_errors=True)

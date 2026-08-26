@@ -8,6 +8,12 @@ export interface Repo {
   status: string;
   created_at: string;
   last_indexed_commit: string;
+
+  // UI display fields (optional — populated by backend or left undefined)
+  stars?: number;
+  forks?: number;
+  last_updated?: string;
+  file_count?: number;
 }
 
 @Injectable({ providedIn: 'root' })

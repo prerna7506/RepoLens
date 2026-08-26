@@ -24,6 +24,54 @@ async function createRepo(req, res, next) {
       ? github_url
       : `${github_url}.git`;
 
+    // Check if repo already exists for this user
+    const existing = await pool.query(
+      `SELECT id, status FROM repos 
+       WHERE user_id = $1 
+       AND (github_url = $2 OR clone_url = $3)
+       LIMIT 1`,
+      [userId, github_url, cloneUrl]
+    );
+
+    if (existing.rows[0]) {
+      const { status, id } = existing.rows[0];
+
+      // If failed → auto retry
+      if (status === 'failed') {
+        const workerResponse = await axios.post(`${WORKER_URL}/ingest`, {
+          repo_id: id,
+          clone_url: cloneUrl
+        });
+        const taskId = workerResponse.data.task_id;
+        await pool.query(
+          'UPDATE repos SET status = $1, task_id = $2 WHERE id = $3',
+          ['queued', taskId, id]
+        );
+        const result = await pool.query(
+          'SELECT id, github_url, status, task_id FROM repos WHERE id = $1',
+          [id]
+        );
+        return res.status(200).json({
+          repo: result.rows[0],
+          task_id: taskId,
+          retried: true
+        });
+      }
+
+      // If completed → block
+      if (status === 'completed') {
+        return res.status(400).json({
+          error: 'Repo already indexed. Use the Re-index button instead.'
+        });
+      }
+
+      // If still processing → block
+      return res.status(400).json({
+        error: `Repo is currently being processed (${status})`
+      });
+    }
+
+    // Insert new repo
     const result = await pool.query(
       `INSERT INTO repos (user_id, github_url, clone_url, status)
        VALUES ($1, $2, $3, 'pending')
@@ -32,20 +80,17 @@ async function createRepo(req, res, next) {
     );
     const repo = result.rows[0];
 
-    // Call FastAPI /ingest to trigger Celery task
     const workerResponse = await axios.post(`${WORKER_URL}/ingest`, {
       repo_id: repo.id,
       clone_url: cloneUrl
     });
-
     const taskId = workerResponse.data.task_id;
 
+    // ✅ save task_id
     await pool.query(
-      'UPDATE repos SET status = $1 WHERE id = $2',
-      ['queued', repo.id]
+      'UPDATE repos SET status = $1, task_id = $2 WHERE id = $3',
+      ['queued', taskId, repo.id]
     );
-
-    logger.info('repo_created', { repo_id: repo.id, task_id: taskId });
 
     res.status(201).json({
       repo: { id: repo.id, github_url: repo.github_url, status: 'queued' },
@@ -60,8 +105,9 @@ async function createRepo(req, res, next) {
 async function listRepos(req, res, next) {
   try {
     const result = await pool.query(
-      `SELECT id, github_url, status, created_at, last_indexed_commit
-       FROM repos WHERE user_id = $1
+      `SELECT id, github_url, status, task_id, created_at, last_indexed_commit
+       FROM repos
+       WHERE user_id = $1
        ORDER BY created_at DESC`,
       [req.user.id]
     );
@@ -134,6 +180,8 @@ async function deleteRepo(req, res, next) {
 async function reindexRepo(req, res, next) {
   try {
     const { id } = req.params;
+
+    // ✅ use correct variable names
     const result = await pool.query(
       'SELECT clone_url FROM repos WHERE id = $1 AND user_id = $2',
       [id, req.user.id]
@@ -148,12 +196,14 @@ async function reindexRepo(req, res, next) {
       { repo_id: id, clone_url }
     );
 
+    const taskId = workerResponse.data.task_id; // ✅ correct variable
+
     await pool.query(
-      'UPDATE repos SET status = $1 WHERE id = $2',
-      ['queued', id]
+      'UPDATE repos SET status = $1, task_id = $2 WHERE id = $3',
+      ['queued', taskId, id] // ✅ use id not repo.id
     );
 
-    res.json({ task_id: workerResponse.data.task_id });
+    res.json({ task_id: taskId });
   } catch (err) {
     next(err);
   }
