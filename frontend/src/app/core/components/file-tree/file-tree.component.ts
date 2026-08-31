@@ -171,13 +171,13 @@ export class FileTreeComponent implements OnInit, OnChanges {
     }
   }
 
-  getIcon(node: FlatNode): string {
-    if (node.isFolder) return node.expanded ? '📂' : '📁';
-    if (node.name.endsWith('.ts')) return '🔷';
-    if (node.name.endsWith('.js')) return '🟨';
-    if (node.name.endsWith('.html')) return '🟧';
-    if (node.name.endsWith('.css')) return '🎨';
-    if (node.name.endsWith('.json')) return '📋';
-    return '📄';
+  getIconType(node: FlatNode): string {
+    if (node.isFolder) return node.expanded ? 'folder-open' : 'folder';
+    if (node.name.endsWith('.ts')) return 'file-code';
+    if (node.name.endsWith('.js')) return 'file-code';
+    if (node.name.endsWith('.html')) return 'file-code';
+    if (node.name.endsWith('.css')) return 'palette';
+    if (node.name.endsWith('.json')) return 'braces';
+    return 'file';
   }
 }

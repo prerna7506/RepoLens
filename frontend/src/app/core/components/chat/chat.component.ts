@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Inject, PLATFORM_ID, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject, PLATFORM_ID, ElementRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -77,6 +77,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     private socketService: SocketService,
     private repoService: RepoService,
     private sanitizer: DomSanitizer,
+    private cdr: ChangeDetectorRef,   
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
@@ -99,6 +100,7 @@ export class ChatComponent implements OnInit, OnDestroy {
           this.repoUrl = repo.github_url;
           this.repoFileCount = repo.file_count || '—';
         }
+        this.cdr.detectChanges();    
       },
       error: () => {}
     });
@@ -116,29 +118,34 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   setupSocketListeners() {
-    this.socketService.onUserJoined((data: ActiveUser) => {
-      this.activeUsers.push(data);
-    });
+  this.socketService.onUserJoined((data: ActiveUser) => {
+    this.activeUsers.push(data);
+    this.cdr.detectChanges();
+  });
 
-    this.socketService.onUserLeft((data: { userId: string }) => {
-      this.activeUsers = this.activeUsers.filter((u) => u.userId !== data.userId);
-    });
-    this.socketService.onFileCursor((data: { userId: string; username: string; path: string }) => {
-      const user = this.activeUsers.find((u) => u.userId === data.userId);
-      if (user) user.currentFile = data.path;
-    });
+  this.socketService.onUserLeft((data: { userId: string }) => {
+    this.activeUsers = this.activeUsers.filter((u) => u.userId !== data.userId);
+    this.cdr.detectChanges();
+  });
 
-    this.socketService.onQueryShared((data) => {
-      this.messages.push({
-        role: 'shared',
-        content: data.answer,
-        citations: data.citations,
-        username: data.username,
-        timestamp: data.timestamp
-      });
-      this.scrollToBottom();
+  this.socketService.onFileCursor((data: { userId: string; username: string; path: string }) => {
+    const user = this.activeUsers.find((u) => u.userId === data.userId);
+    if (user) user.currentFile = data.path;
+    this.cdr.detectChanges();
+  });
+
+  this.socketService.onQueryShared((data) => {
+    this.messages.push({
+      role: 'shared',
+      content: data.answer,
+      citations: data.citations,
+      username: data.username,
+      timestamp: data.timestamp
     });
-  }
+    this.scrollToBottom();
+    this.cdr.detectChanges();
+  });
+}
 
   ask() {
     if (!this.question.trim() || this.isLoading) return;
@@ -149,7 +156,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     this.messages.push({ role: 'user', content: userMessage });
     this.messages.push({ role: 'assistant', content: '', loading: true });
-
+    this.cdr.detectChanges();
     this.queryService.ask(userMessage, this.repoId).subscribe({
       next: (res) => {
         this.messages[this.messages.length - 1] = {
@@ -160,7 +167,7 @@ export class ChatComponent implements OnInit, OnDestroy {
         };
         this.isLoading = false;
         this.scrollToBottom();
-
+        this.cdr.detectChanges();
         this.socketService.emitNewQuery({
           question: userMessage,
           answer: res.answer,
