@@ -29,6 +29,21 @@ const routes: Routes = [
     loadComponent: () =>
       import('./core/components/chat/chat.component').then((m) => m.ChatComponent)
   },
+  {
+    path: 'history',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./core/components/search-history/search-history.component').then((m) => m.SearchHistoryComponent)
+  },
+  { 
+    path: 'team', 
+    loadComponent: () => 
+      import('./core/components/team-management/team-management.component').then(m => m.TeamManagementComponent) 
+  },
+  { 
+    path: 'settings', 
+    loadComponent: () => import('./core/components/setting/setting.component').then(m => m.SettingsComponent) 
+  },
   { path: '', redirectTo: 'login', pathMatch: 'full' },
 ];
 

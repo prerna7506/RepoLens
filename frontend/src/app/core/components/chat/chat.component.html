@@ -62,16 +62,25 @@
       </div>
     }
 
-    @if (showSettings) {
-      <div class="settings-overlay">
-        <app-repo-settings
-          [repoId]="repoId"
-          [repoUrl]="repoUrl"
-          (deleted)="goBack()"
-          (reindexed)="showSettings = false">
-        </app-repo-settings>
-      </div>
-    }
+        @if (showSettings) {
+          <div class="flyout-backdrop" (click)="showSettings = false"></div>
+          <div class="flyout">
+            <div class="flyout-header">
+              <span>Repository Settings</span>
+              <button class="icon-btn" (click)="showSettings = false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+            <div class="flyout-body">
+              <app-repo-settings
+                [repoId]="repoId"
+                [repoUrl]="repoUrl"
+                (deleted)="goBack()"
+                (reindexed)="showSettings = false">
+              </app-repo-settings>
+            </div>
+          </div>
+        }
 
     <div class="messages" id="chat-messages">
       @if (messages.length === 0) {

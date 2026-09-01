@@ -11,5 +11,6 @@ import { CommonModule } from '@angular/common';
 })
 export class SearchComponent {
   @Input() username = '';
+  @Input() activeUsers: { userId: string; username: string; color?: string }[] = [];
   constructor(public auth: AuthService) {}
 }

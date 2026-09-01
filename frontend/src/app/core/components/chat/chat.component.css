@@ -654,3 +654,50 @@
   background: var(--border);
   border-radius: 4px;
 }
+/* ── Settings Flyout ── */
+
+.flyout-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 30;
+}
+
+.flyout {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 340px;
+  max-width: 90%;
+  background: var(--bg-panel-alt, #141926);
+  border-left: 1px solid var(--border, #232a3d);
+  z-index: 31;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
+  animation: slide-in-right 0.15s ease-out;
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(12px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.flyout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border, #232a3d);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #e6e8ef);
+  flex-shrink: 0;
+}
+
+.flyout-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}

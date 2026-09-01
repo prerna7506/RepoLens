@@ -5,17 +5,16 @@ import { AuthService } from '../../services/auth.service';
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, RouterLinkActive],
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.css'
 })
 export class SidebarComponent {
   navItems = [
-    { label: 'Dashboard', route: '/dashboard', active: true },
-    { label: 'Repositories', route: '/dashboard' },
-    { label: 'Search History', route: '/dashboard' },
-    { label: 'Team', route: '/dashboard' },
-    { label: 'Settings', route: '/dashboard' },
+    { label: 'Dashboard', route: '/dashboard' }, 
+    { label: 'Search History', route: '/history' },
+    { label: 'Team', route: '/team' },
+    { label: 'Settings', route: '/settings' },
   ];
 
   constructor(public auth: AuthService) {}

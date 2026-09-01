@@ -192,4 +192,21 @@ async function getHistory(req, res, next) {
     }
 }
 
-module.exports = { queryRepo, getHistory };
+async function getAllHistory(req, res, next) {
+    try {
+        const result = await pool.query(
+            `SELECT q.id, q.question, q.answer, q.sources, q.created_at,
+                    q.repo_id, r.github_url
+             FROM queries q
+             JOIN repos r ON r.id = q.repo_id
+             WHERE q.user_id = $1
+             ORDER BY q.created_at DESC
+             LIMIT 100`,
+            [req.user.id]
+        );
+        res.json({ queries: result.rows });
+    } catch (err) {
+        next(err);
+    }
+}
+module.exports = { queryRepo, getHistory, getAllHistory };

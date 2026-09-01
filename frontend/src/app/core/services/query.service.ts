@@ -48,4 +48,8 @@ export class QueryService {
       { params: { path } }
     );
   }
+  // query.service.ts — add alongside getHistory()
+  getAllHistory(): Observable<{ queries: QueryHistory[] }> {
+    return this.http.get<{ queries: QueryHistory[] }>('/api/query/history');
+  }
 }

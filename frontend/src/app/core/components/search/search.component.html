@@ -5,13 +5,22 @@
   </div>
 
   <div class="actions">
-    <button class="icon-btn">
+    @if (activeUsers.length > 0) {
+      <div class="presence-chips" [title]="activeUsers.length + ' active'">
+        @for (user of activeUsers.slice(0, 2); track user.userId) {
+          <span class="avatar-chip" [style.background]="user.color || 'linear-gradient(135deg, #facc15, #22d3ee)'">
+            {{ user.username.slice(0,2).toUpperCase() }}
+          </span>
+        }
+      </div>
+    }
+
+    <button class="icon-btn" title="Notifications">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
     </button>
-    
-    <div class="user">
-      <div class="avatar">{{ username ? username.slice(0,2).toUpperCase() : 'U' }}</div>
-      <button (click)="auth.logout()" class="logout-link">Logout</button>
-    </div>
+
+    <button class="icon-btn user-btn" title="Account">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </button>
   </div>
 </header>
