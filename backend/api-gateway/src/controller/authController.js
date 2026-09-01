@@ -45,15 +45,29 @@ async function githubCallback(req, res, next) {
     const profileResp = await axios.get('https://api.github.com/user', {
       headers: { Authorization: `Bearer ${githubAccessToken}` }
     });
-    const { id: githubId, login: username, avatar_url } = profileResp.data;
+    const { id: githubId, login: username, avatar_url, name, email } = profileResp.data;
+
+    // GitHub's /user email can be null if private — fall back to /user/emails
+    let resolvedEmail = email;
+    if (!resolvedEmail) {
+      try {
+        const emailsResp = await axios.get('https://api.github.com/user/emails', {
+          headers: { Authorization: `Bearer ${githubAccessToken}` }
+        });
+        const primary = emailsResp.data.find(e => e.primary) || emailsResp.data[0];
+        resolvedEmail = primary?.email || null;
+      } catch {
+        resolvedEmail = null;
+      }
+    }
 
     const result = await pool.query(
-      `INSERT INTO users (github_id, username, avatar_url)
-       VALUES ($1, $2, $3)
+      `INSERT INTO users (github_id, username, avatar_url, name, email)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (github_id)
-       DO UPDATE SET username = $2, avatar_url = $3
-       RETURNING id, username, avatar_url`,
-      [String(githubId), username, avatar_url]
+       DO UPDATE SET username = $2, avatar_url = $3, name = $4, email = $5
+       RETURNING id, username, avatar_url, name, email`,
+      [String(githubId), username, avatar_url, name, resolvedEmail]
     );
     const user = result.rows[0];
 
@@ -89,9 +103,23 @@ async function refresh(req, res) {
   }
 }
 
+async function getMe(req, res) {
+  try {
+    const result = await pool.query(
+      'SELECT id, username, name, email, avatar_url, github_id FROM users WHERE id = $1',
+      [req.user.sub]
+    );
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+}
+
 function logout(req, res) {
   res.clearCookie('refreshToken', COOKIE_OPTS);
   res.status(204).send();
 }
 
-module.exports = { redirectToGithub, githubCallback, refresh, logout };
+module.exports = { redirectToGithub, githubCallback, refresh, logout, getMe };

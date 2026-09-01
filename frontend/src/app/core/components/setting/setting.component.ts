@@ -5,6 +5,7 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
 import { SearchComponent } from '../search/search.component';
 import { AuthService } from '../../services/auth.service';
 
+
 type SettingsTab = 'profile' | 'api-keys' | 'preferences' | 'usage';
 
 @Component({
@@ -43,19 +44,25 @@ export class SettingsComponent implements OnInit {
   ];
 
   constructor() {
-    // Reactively sync when auth user changes
-    effect(() => {
-      const user = this.auth.currentUser();
-      if (user) {
-        this.profile.fullName = user.name || 'Jane Doe';
-        this.profile.username = user.username || user.github_login || 'janedoe_dev';
-        this.profile.email = user.email || 'jane.doe@example.com';
-        this.profile.avatar = user.avatar_url || '';
-        this.profile.githubConnected = !!user.github_id || !!user.github_login;
-        this.profile.githubHandle = user.github_login || this.profile.username;
-      }
-    });
-  }
+  effect(() => {
+    const user = this.auth.currentUser();
+    if (user) {
+      this.profile.fullName = user.name ?? '';
+      this.profile.username = user.username ?? user.github_login ?? '';
+      this.profile.email = user.email ?? '';
+      this.profile.avatar = user.avatar_url ?? '';
+      this.profile.githubConnected = !!user.github_id || !!user.github_login;
+      this.profile.githubHandle = user.github_login || this.profile.username;
+    } else {
+      this.profile.fullName = '';
+      this.profile.username = '';
+      this.profile.email = '';
+      this.profile.avatar = '';
+      this.profile.githubConnected = false;
+      this.profile.githubHandle = '';
+    }
+  });
+}
 
   ngOnInit() {
     // If user not loaded yet, try fetching

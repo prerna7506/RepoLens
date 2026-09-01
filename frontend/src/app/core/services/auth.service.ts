@@ -49,12 +49,11 @@ export class AuthService {
       .pipe(tap((res) => this.setAccessToken(res.accessToken)));
   }
 
-  /** Fetch current user profile — call this on app init */
   fetchProfile(): Observable<UserProfile> {
-    return this.http.get<UserProfile>('/auth/me', { withCredentials: true }).pipe(
-      tap((user) => this.currentUser.set(user))
-    );
-  }
+  return this.http.get<UserProfile>('/api/me', { withCredentials: true }).pipe(
+    tap((user) => this.currentUser.set(user))
+  );
+}
 
   logout() {
     this.http.post('/auth/logout', {}, { withCredentials: true }).subscribe(() => {

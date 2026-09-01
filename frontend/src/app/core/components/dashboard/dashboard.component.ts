@@ -72,8 +72,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   initDashboard() {
-    this.http.get<any>('/api/me').subscribe((res) => {
-      this.username = res.user.username;
+    this.auth.fetchProfile().subscribe({
+      next: (user) => { this.username = user.username; },
+      error: (err) => console.error('Failed to load profile:', err)
     });
     this.loadRepos();
     this.pollInterval = setInterval(() => this.loadRepos(), 5000);

@@ -12,7 +12,7 @@ const healthRoutes = require('./routes/health');
 const repoRoutes = require('./routes/repos');
 const queryRoutes = require('./routes/query');
 const webhookRoutes = require('./routes/webhooks');
-
+const pool = require('./db/db_connection.js'); 
 const app = express();
 
 // Webhook route MUST come before express.json()
@@ -33,10 +33,19 @@ app.use('/auth', authRoutes);
 app.use('/api/repos', repoRoutes);
 app.use('/api/query', queryRoutes);
 
-app.get('/api/me', requireAuth, (req, res) => {
-  res.json({ user: req.user });
+app.get('/api/me', requireAuth, async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, username, name, email, avatar_url, github_id FROM users WHERE id = $1',
+      [req.user.id]   // was req.user.sub
+    );
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    next(err);
+  }
 });
-
 app.use(errorHandler);
 
 module.exports = app;
