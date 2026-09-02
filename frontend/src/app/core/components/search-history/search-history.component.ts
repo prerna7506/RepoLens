@@ -1,4 +1,4 @@
-import { Component, OnInit, Inject, PLATFORM_ID } from '@angular/core';
+import { Component, OnInit, Inject, PLATFORM_ID, ChangeDetectorRef } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { QueryService } from '../../services/query.service';
@@ -6,6 +6,7 @@ import { RepoService, Repo } from '../../services/repo.service';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { SearchComponent } from '../search/search.component';
 import { AuthService } from '../../services/auth.service';
+import { switchMap, tap } from 'rxjs/operators';
 
 interface HistoryEntry {
   id: string;
@@ -27,17 +28,16 @@ interface RepoFilter {
   standalone: true,
   imports: [FormsModule, SidebarComponent, SearchComponent],
   templateUrl: './search-history.component.html',
-  styleUrl: './search-history.component.css'
+  styleUrl: './search-history.component.css',
 })
 export class SearchHistoryComponent implements OnInit {
   allEntries: HistoryEntry[] = [];
   entries: HistoryEntry[] = [];
   repoFilters: RepoFilter[] = [];
   searchTerm = '';
-  
-  // Split into two independent filters
-  activeRepoFilter = 'all';   // 'all' | repoId
-  last7Only = false;          // true | false
+
+  activeRepoFilter = 'all';
+  last7Only = false; 
   loading = true;
   errorMsg = '';
 
@@ -47,7 +47,8 @@ export class SearchHistoryComponent implements OnInit {
     private queryService: QueryService,
     private repoService: RepoService,
     private auth: AuthService,
-    @Inject(PLATFORM_ID) private platformId: Object
+    private cdr: ChangeDetectorRef,
+    @Inject(PLATFORM_ID) private platformId: Object,
   ) {}
 
   ngOnInit() {
@@ -59,40 +60,40 @@ export class SearchHistoryComponent implements OnInit {
     this.loading = true;
     this.errorMsg = '';
 
-    this.repoService.getRepos().subscribe({
-      next: (res) => {
-        const repos: Repo[] = res.repos || [];
-        this.repoFilters = repos.map((r, i) => ({
-          id: r.id,
-          name: this.shortName(r.github_url),
-          color: this.palette[i % this.palette.length]
-        }));
-
-        this.queryService.getAllHistory().subscribe({
-          next: (histRes: { queries: any[] }) => {
-            const repoNameMap = new Map(this.repoFilters.map((r) => [r.id, r.name]));
-            this.allEntries = (histRes.queries || []).map((q) => ({
-              id: q.id,
-              repoId: q.repo_id,
-              repoName: repoNameMap.get(q.repo_id) || 'unknown',
-              question: q.question,
-              answer: q.answer,
-              created_at: q.created_at
-            }));
-            this.applyFilters();
-            this.loading = false;
-          },
-          error: () => {
-            this.errorMsg = 'Failed to load search history.';
-            this.loading = false;
-          }
-        });
-      },
-      error: () => {
-        this.errorMsg = 'Failed to load repositories.';
-        this.loading = false;
-      }
-    });
+    this.repoService
+      .getRepos()
+      .pipe(
+        tap((res) => {
+          const repos: Repo[] = res.repos || [];
+          this.repoFilters = repos.map((r, i) => ({
+            id: r.id,
+            name: this.shortName(r.github_url),
+            color: this.palette[i % this.palette.length],
+          }));
+        }),
+        switchMap(() => this.queryService.getAllHistory()),
+      )
+      .subscribe({
+        next: (histRes: { queries: any[] }) => {
+          const repoNameMap = new Map(this.repoFilters.map((r) => [r.id, r.name]));
+          this.allEntries = (histRes.queries || []).map((q) => ({
+            id: q.id,
+            repoId: q.repo_id,
+            repoName: repoNameMap.get(q.repo_id) || 'unknown',
+            question: q.question,
+            answer: q.answer,
+            created_at: q.created_at,
+          }));
+          this.applyFilters();
+          this.loading = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.errorMsg = 'Failed to load history.';
+          this.loading = false;
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   setRepoFilter(filter: string) {
@@ -127,9 +128,7 @@ export class SearchHistoryComponent implements OnInit {
     const term = this.searchTerm.trim().toLowerCase();
     if (term) {
       result = result.filter(
-        (e) =>
-          e.question.toLowerCase().includes(term) ||
-          e.answer.toLowerCase().includes(term)
+        (e) => e.question.toLowerCase().includes(term) || e.answer.toLowerCase().includes(term),
       );
     }
 
