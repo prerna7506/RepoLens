@@ -7,6 +7,14 @@ import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { authGuard } from './core/guards/auth.guard';
 
 const routes: Routes = [
+  // Landing page (root)
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: () =>
+      import('./core/components/landing/landing.component').then((m) => m.LandingComponent)
+  },
+
   {
     path: 'login',
     loadComponent: () =>
@@ -35,11 +43,13 @@ const routes: Routes = [
     loadComponent: () =>
       import('./core/components/search-history/search-history.component').then((m) => m.SearchHistoryComponent)
   },
-  { 
-    path: 'settings', 
-    loadComponent: () => import('./core/components/setting/setting.component').then(m => m.SettingsComponent) 
+  {
+    path: 'settings',
+    canActivate: [authGuard],        
+    loadComponent: () =>
+      import('./core/components/setting/setting.component').then((m) => m.SettingsComponent)
   },
-  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: '**', redirectTo: '' }
 ];
 
 export const appConfig: ApplicationConfig = {
