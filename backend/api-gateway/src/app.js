@@ -8,6 +8,7 @@ const { errorHandler } = require('./middleware/errorHandler');
 const { requireAuth } = require('./middleware/auth');
 
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/user'); 
 const healthRoutes = require('./routes/health');
 const repoRoutes = require('./routes/repos');
 const queryRoutes = require('./routes/query');
@@ -30,6 +31,7 @@ app.use(requestLogger);
 
 app.use('/health', healthRoutes);
 app.use('/auth', authRoutes);
+app.use('/api/users', userRoutes);  
 app.use('/api/repos', repoRoutes);
 app.use('/api/query', queryRoutes);
 

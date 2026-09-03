@@ -35,4 +35,7 @@ export class RepoService {
       `/api/repos/tasks/${taskId}`
     );
   }
+  deleteRepo(id: string): Observable<void> {
+    return this.http.delete<void>(`/api/repos/${id}`);
+  }
 }

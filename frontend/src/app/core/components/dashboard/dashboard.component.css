@@ -572,33 +572,57 @@
   gap: 6px;
 }
 
-/* View Button */
-.view-btn {
-  width: 100%;
+/* Action Buttons */
+.repo-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.action-btn {
+  flex: 1;
   padding: 11px;
   background: #1e293b;
   border: 1px solid #2d3748;
   border-radius: 10px;
   color: #e2e8f0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   transition: all 0.2s;
-  margin-top: auto;
   font-family: inherit;
 }
 
-.view-btn:hover:not(:disabled) {
+.action-btn.primary {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #ffffff;
+}
+
+.action-btn.primary:hover:not(:disabled) {
+  background: #5558e0;
+}
+
+.action-btn:hover:not(:disabled) {
   background: #27354f;
   border-color: #475569;
 }
 
-.view-btn:disabled,
-.view-btn.disabled {
+.action-btn.danger {
+  flex: 0 0 auto;
+  padding: 11px 14px;
+}
+
+.action-btn.danger:hover:not(:disabled) {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.action-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }

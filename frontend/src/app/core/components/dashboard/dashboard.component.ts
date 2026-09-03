@@ -214,6 +214,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.router.navigate(['/chat', repoId]);
   }
 
+    deleteRepo(repoId: string, event: Event) {
+    event.stopPropagation();
+    this.http.delete(`/api/repos/${repoId}`).subscribe({
+      next: () => this.repos.update(list => list.filter(r => r.id !== repoId)),
+      error: (err) => console.error('Delete failed:', err)
+    });
+  }
+
   ngOnDestroy() {
     if (this.pollInterval) clearInterval(this.pollInterval);
   }

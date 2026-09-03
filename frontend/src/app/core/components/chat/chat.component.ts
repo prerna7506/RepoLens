@@ -6,7 +6,7 @@ import {
   PLATFORM_ID,
   ElementRef,
   ViewChild,
-  HostListener,        // ← ADD THIS
+  HostListener,        
   ChangeDetectorRef
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
@@ -18,7 +18,6 @@ import { SocketService } from '../../services/socket.service';
 import { RepoService, Repo } from '../../services/repo.service';
 import { FileTreeComponent } from '../file-tree/file-tree.component';
 import { QueryHistoryComponent } from '../query-history/query-history.component';
-import { RepoSettingsComponent } from '../repo-settings/repo-settings.component';
 import { FormatMessagePipe } from '../../pipe/format-message-pipe';
 
 interface Message {
@@ -50,7 +49,6 @@ interface FileTab {
     FormsModule,
     FileTreeComponent,
     QueryHistoryComponent,
-    RepoSettingsComponent,
     FormatMessagePipe
   ],
   templateUrl: './chat.component.html',
@@ -166,6 +164,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.messages.push({ role: 'user', content: userMessage });
     this.messages.push({ role: 'assistant', content: '', loading: true });
     this.cdr.detectChanges();
+    this.scrollToBottom();  
     this.queryService.ask(userMessage, this.repoId).subscribe({
       next: (res) => {
         this.messages[this.messages.length - 1] = {
@@ -190,12 +189,15 @@ export class ChatComponent implements OnInit, OnDestroy {
           loading: false
         };
         this.isLoading = false;
+        this.scrollToBottom();  
+        this.cdr.detectChanges();
       }
     });
   }
 
   onHistorySelected(question: string) {
     this.activeDrawer = null;
+    this.cdr.detectChanges(); 
     this.question = question;
     this.ask();
   }

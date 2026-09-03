@@ -1,0 +1,71 @@
+<div class="dashboard-layout">
+  <app-sidebar></app-sidebar>
+
+  <div class="main-area">
+    <app-search></app-search>
+
+    <div class="content-area">
+      <div class="repo-page">
+        <!-- Page Header -->
+        <div class="page-header">
+          <div class="header-text">
+            <h1>Repositories</h1>
+            <p>{{ isLoading ? 'Loading...' : filteredRepos.length + ' codebase' + (filteredRepos.length !== 1 ? 's' : '') + ' indexed' }}</p>
+          </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+          <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" placeholder="Search repositories..." (input)="onSearch($any($event.target).value)" />
+          </div>
+
+          <div class="sort-group">
+            <span class="sort-label">Sort by</span>
+            <button class="sort-btn" [class.active]="sortBy === 'recent'" (click)="setSort('recent')">Recent</button>
+            <button class="sort-btn" [class.active]="sortBy === 'name'" (click)="setSort('name')">Name</button>
+            <button class="sort-btn" [class.active]="sortBy === 'files'" (click)="setSort('files')">Files</button>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="state-msg" *ngIf="isLoading">Loading repositories…</div>
+
+        <!-- Error -->
+        <div class="state-msg error" *ngIf="error && !isLoading">
+          <p>{{ error }}</p>
+          <button class="btn btn-primary" (click)="loadRepos()">Retry</button>
+        </div>
+
+        <!-- Repo List -->
+        <div class="repo-list" *ngIf="!isLoading && !error && filteredRepos.length > 0">
+          <div 
+            class="repo-row" 
+            *ngFor="let repo of filteredRepos; trackBy: trackById" 
+            [routerLink]="['/chat', repo.id]">
+            
+            <div class="repo-row-left">
+              <div class="repo-avatar">{{ repo.name[0].toUpperCase() }}</div>
+              <div class="repo-row-info">
+                <h3 class="repo-name">{{ repo.name }}</h3>
+                <span class="repo-owner">{{ repo.owner }}</span>
+              </div>
+            </div>
+
+            <div class="repo-row-right">
+              <span class="repo-file-count">{{ repo.fileCount }} files</span>
+              <span class="repo-synced">{{ repo.lastSynced }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty -->
+        <div class="state-msg" *ngIf="!isLoading && !error && filteredRepos.length === 0">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 11v6"/><path d="M9 14h6"/></svg>
+          <p>No repositories found</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

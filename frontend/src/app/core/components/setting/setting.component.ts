@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { SearchComponent } from '../search/search.component';
 import { AuthService } from '../../services/auth.service';
+import { tap } from 'rxjs/internal/operators/tap';
 
 
 type SettingsTab = 'profile' | 'api-keys' | 'preferences' | 'usage';
@@ -20,6 +21,8 @@ export class SettingsComponent implements OnInit {
 
   activeTab: SettingsTab = 'profile';
   saving = false;
+  saveStatus: 'idle' | 'success' | 'error' = 'idle';
+  saveError = '';
 
   // Profile form — reactive to auth signal
   profile = {
@@ -79,11 +82,24 @@ export class SettingsComponent implements OnInit {
 
   onSave() {
     this.saving = true;
-    // Wire to your API: PUT /api/users/profile
-    setTimeout(() => {
-      this.saving = false;
-      alert('Settings saved!');
-    }, 800);
+    this.saveStatus = 'idle';
+
+    this.auth.updateProfile({
+      name: this.profile.fullName,
+      username: this.profile.username,
+      email: this.profile.email
+    }).subscribe({
+      next: () => {
+        this.saving = false;
+        this.saveStatus = 'success';
+        setTimeout(() => this.saveStatus = 'idle', 3000); // auto-dismiss
+      },
+      error: (err) => {
+        this.saving = false;
+        this.saveStatus = 'error';
+        this.saveError = err?.error?.message || 'Failed to save changes.';
+      }
+    });
   }
 
   onCancel() {
@@ -124,7 +140,6 @@ export class SettingsComponent implements OnInit {
       this.profile.githubHandle = '';
     }
   }
-
   onAvatarUpload(event: Event) {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (file) {

@@ -606,3 +606,13 @@
     min-width: 100%;
   }
 }
+.save-toast {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+.save-toast.success { color: #16a34a; background: rgba(22,163,74,0.1); }
+.save-toast.error { color: #dc2626; background: rgba(220,38,38,0.1); }

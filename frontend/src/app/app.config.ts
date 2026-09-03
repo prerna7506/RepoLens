@@ -49,6 +49,10 @@ const routes: Routes = [
     loadComponent: () =>
       import('./core/components/setting/setting.component').then((m) => m.SettingsComponent)
   },
+  { 
+    path: 'repositories', 
+    loadComponent: () => import('./core/components/repository/repository.component').then(m => m.RepositoryComponent)
+  },
   { path: '**', redirectTo: '' }
 ];
 

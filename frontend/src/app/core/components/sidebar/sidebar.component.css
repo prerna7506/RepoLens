@@ -1,5 +1,5 @@
 .sidebar {
-  width: 230px;
+  width: 220px;
   background: var(--bg-panel, #0f131c);
   border-right: 1px solid var(--border, #1e2532);
   height: 100vh;

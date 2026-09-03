@@ -1,17 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { RepoSettingsComponent } from './repo-settings.component';
+import { UserFlyoutComponent } from './user-flyout.component';
 
-describe('RepoSettingsComponent', () => {
-  let component: RepoSettingsComponent;
-  let fixture: ComponentFixture<RepoSettingsComponent>;
+describe('UserFlyoutComponent', () => {
+  let component: UserFlyoutComponent;
+  let fixture: ComponentFixture<UserFlyoutComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [RepoSettingsComponent],
+      imports: [UserFlyoutComponent],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(RepoSettingsComponent);
+    fixture = TestBed.createComponent(UserFlyoutComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

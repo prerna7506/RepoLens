@@ -25,7 +25,7 @@ export class AuthService {
 
   constructor(
     private http: HttpClient,
-    @Inject(PLATFORM_ID) private platformId: Object
+    @Inject(PLATFORM_ID) private platformId: Object,
   ) {}
 
   setAccessToken(token: string | null) {
@@ -50,11 +50,17 @@ export class AuthService {
   }
 
   fetchProfile(): Observable<UserProfile> {
-  return this.http.get<UserProfile>('/api/me', { withCredentials: true }).pipe(
-    tap((user) => this.currentUser.set(user))
-  );
-}
+    return this.http
+      .get<UserProfile>('/api/me', { withCredentials: true })
+      .pipe(tap((user) => this.currentUser.set(user)));
+  }
 
+  // auth.service.ts (add to existing service)
+  updateProfile(payload: { name: string; username: string; email: string }) {
+    return this.http.put<{ user: any }>('/api/users/profile', payload).pipe(
+      tap(res => this.currentUser.set(res.user))  // keep signal in sync
+    );
+  }
   logout() {
     this.http.post('/auth/logout', {}, { withCredentials: true }).subscribe(() => {
       this.setAccessToken(null);

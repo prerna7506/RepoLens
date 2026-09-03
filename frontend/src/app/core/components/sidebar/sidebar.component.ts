@@ -12,6 +12,7 @@ import { AuthService } from '../../services/auth.service';
 export class SidebarComponent {
   navItems = [
     { label: 'Dashboard', route: '/dashboard' }, 
+    { label: 'Repositories', route: '/repositories' },
     { label: 'Search History', route: '/history' },
     { label: 'Settings', route: '/settings' },
   ];

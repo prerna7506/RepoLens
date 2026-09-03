@@ -1,0 +1,50 @@
+<div class="flyout-wrapper" [class.open]="isOpen">
+  <div class="flyout-panel">
+    <!-- Profile Header -->
+    <div class="flyout-header">
+      <div class="avatar" [style.background]="'linear-gradient(135deg, #818cf8, #c084fc)'">
+        <span>{{ user.initials || user.name.slice(0,2).toUpperCase() }}</span>
+      </div>
+      <div class="user-info">
+        <div class="name">{{ user.name }}</div>
+        <div class="email">{{ user.email }}</div>
+        <div class="role-badge" *ngIf="user.role">{{ user.role }}</div>
+      </div>
+    </div>
+
+    <!-- Workspace -->
+    <div class="workspace-section" *ngIf="user.workspace">
+      <span class="workspace-label">WORKSPACE:</span>
+      <span class="workspace-name">{{ user.workspace }}</span>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider"></div>
+
+    <!-- Menu Items -->
+    <nav class="flyout-menu">
+      <a *ngFor="let item of menuItems" 
+         [routerLink]="item.route" 
+         class="menu-item"
+         (click)="close()">
+        <span class="icon" [innerHTML]="item.icon"></span>
+        <span class="label">{{ item.label }}</span>
+      </a>
+    </nav>
+
+    <!-- Divider -->
+    <div class="divider"></div>
+
+    <!-- Logout -->
+    <button class="menu-item logout" (click)="onLogout()">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" x2="9" y1="12" y2="12"/>
+        </svg>
+      </span>
+      <span class="label">Log out</span>
+    </button>
+  </div>
+</div>

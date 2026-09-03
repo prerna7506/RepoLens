@@ -117,3 +117,11 @@
 .user-btn:hover {
   background: linear-gradient(135deg, #8b5cf6, #a78bfa);
 }
+.user-flyout-container {
+  position: relative;
+}
+
+.user-btn.active {
+  background: #334155;
+  color: #f8fafc;
+}
