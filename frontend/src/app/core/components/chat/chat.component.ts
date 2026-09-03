@@ -1,4 +1,14 @@
-import { Component, OnInit, OnDestroy, Inject, PLATFORM_ID, ElementRef, ViewChild, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  Inject,
+  PLATFORM_ID,
+  ElementRef,
+  ViewChild,
+  HostListener,        // ← ADD THIS
+  ChangeDetectorRef
+} from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -23,7 +33,6 @@ interface Message {
 interface ActiveUser {
   userId: string;
   username: string;
-  // Populated by a 'file-cursor' socket event, if wired up server-side (see note below).
   currentFile?: string;
 }
 
@@ -58,9 +67,6 @@ export class ChatComponent implements OnInit, OnDestroy {
   showSettings = false;
   selectedFile = '';
 
-  // The new design shows only two panels (Assistant | Code Viewer).
-  // File tree & search history now live in a slide-over drawer instead
-  // of fixed side columns, so no functionality is lost.
   activeDrawer: 'files' | 'history' | null = null;
 
   // Code viewer state
@@ -69,6 +75,9 @@ export class ChatComponent implements OnInit, OnDestroy {
   highlightRange: { start: number; end: number } | null = null;
 
   @ViewChild('codeScroll') codeScrollRef?: ElementRef<HTMLDivElement>;
+  @ViewChild('resizer') resizerRef!: ElementRef<HTMLDivElement>;  // ← ADD THIS
+
+  private isResizing = false;  // ← ADD THIS
 
   constructor(
     private route: ActivatedRoute,
@@ -77,7 +86,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     private socketService: SocketService,
     private repoService: RepoService,
     private sanitizer: DomSanitizer,
-    private cdr: ChangeDetectorRef,   
+    private cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
@@ -100,7 +109,7 @@ export class ChatComponent implements OnInit, OnDestroy {
           this.repoUrl = repo.github_url;
           this.repoFileCount = repo.file_count || '—';
         }
-        this.cdr.detectChanges();    
+        this.cdr.detectChanges();
       },
       error: () => {}
     });
@@ -118,34 +127,34 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   setupSocketListeners() {
-  this.socketService.onUserJoined((data: ActiveUser) => {
-    this.activeUsers.push(data);
-    this.cdr.detectChanges();
-  });
-
-  this.socketService.onUserLeft((data: { userId: string }) => {
-    this.activeUsers = this.activeUsers.filter((u) => u.userId !== data.userId);
-    this.cdr.detectChanges();
-  });
-
-  this.socketService.onFileCursor((data: { userId: string; username: string; path: string }) => {
-    const user = this.activeUsers.find((u) => u.userId === data.userId);
-    if (user) user.currentFile = data.path;
-    this.cdr.detectChanges();
-  });
-
-  this.socketService.onQueryShared((data) => {
-    this.messages.push({
-      role: 'shared',
-      content: data.answer,
-      citations: data.citations,
-      username: data.username,
-      timestamp: data.timestamp
+    this.socketService.onUserJoined((data: ActiveUser) => {
+      this.activeUsers.push(data);
+      this.cdr.detectChanges();
     });
-    this.scrollToBottom();
-    this.cdr.detectChanges();
-  });
-}
+
+    this.socketService.onUserLeft((data: { userId: string }) => {
+      this.activeUsers = this.activeUsers.filter((u) => u.userId !== data.userId);
+      this.cdr.detectChanges();
+    });
+
+    this.socketService.onFileCursor((data: { userId: string; username: string; path: string }) => {
+      const user = this.activeUsers.find((u) => u.userId === data.userId);
+      if (user) user.currentFile = data.path;
+      this.cdr.detectChanges();
+    });
+
+    this.socketService.onQueryShared((data) => {
+      this.messages.push({
+        role: 'shared',
+        content: data.answer,
+        citations: data.citations,
+        username: data.username,
+        timestamp: data.timestamp
+      });
+      this.scrollToBottom();
+      this.cdr.detectChanges();
+    });
+  }
 
   ask() {
     if (!this.question.trim() || this.isLoading) return;
@@ -214,6 +223,53 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.activeDrawer = this.activeDrawer === drawer ? null : drawer;
   }
 
+  /* ── Panel resizing ── */
+
+  startResize(event: MouseEvent | TouchEvent): void {
+    this.isResizing = true;
+    this.resizerRef.nativeElement.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    if (event.preventDefault) event.preventDefault();
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onResizeMove(event: MouseEvent): void {
+    if (!this.isResizing) return;
+    const shell = document.querySelector('.chat-shell') as HTMLElement;
+    const leftPanel = document.querySelector('.assistant-panel') as HTMLElement;
+    if (!shell || !leftPanel) return;
+
+    const minWidth = 280;
+    const maxWidth = shell.clientWidth - minWidth - 5;
+    const newWidth = Math.max(minWidth, Math.min(event.clientX, maxWidth));
+    leftPanel.style.width = `${newWidth}px`;
+  }
+
+  @HostListener('document:touchmove', ['$event'])
+  onResizeTouchMove(event: TouchEvent): void {
+    if (!this.isResizing) return;
+    const shell = document.querySelector('.chat-shell') as HTMLElement;
+    const leftPanel = document.querySelector('.assistant-panel') as HTMLElement;
+    if (!shell || !leftPanel) return;
+
+    const touch = event.touches[0];
+    const minWidth = 280;
+    const maxWidth = shell.clientWidth - minWidth - 5;
+    const newWidth = Math.max(minWidth, Math.min(touch.clientX, maxWidth));
+    leftPanel.style.width = `${newWidth}px`;
+  }
+
+  @HostListener('document:mouseup')
+  @HostListener('document:touchend')
+  stopResize(): void {
+    if (!this.isResizing) return;
+    this.isResizing = false;
+    this.resizerRef.nativeElement.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+
   /* ── Code viewer ── */
 
   onFileSelected(path: string) {
@@ -255,15 +311,6 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   private fetchFileContent(path: string, tab: FileTab) {
-    // ASSUMPTION: QueryService needs a getFileContent() method hitting your
-    // backend's file-content route. Suggested addition to query.service.ts:
-    //
-    //   getFileContent(repoId: string, path: string) {
-    //     return this.http.get<{ content: string }>(
-    //       `/api/repos/${repoId}/files/content`,
-    //       { params: { path } }
-    //     );
-    //   }
     this.queryService.getFileContent(this.repoId, path).subscribe({
       next: (res: { content: string }) => {
         tab.lines = this.highlightTs(res.content);

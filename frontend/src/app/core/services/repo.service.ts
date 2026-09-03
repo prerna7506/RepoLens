@@ -6,14 +6,14 @@ export interface Repo {
   id: string;
   github_url: string;
   status: string;
+  task_id: string | null;
   created_at: string;
-  last_indexed_commit: string;
-
-  // UI display fields (optional — populated by backend or left undefined)
+  updated_at: string;  
+  last_indexed_commit: string | null;
+  file_count: number;
   stars?: number;
   forks?: number;
   last_updated?: string;
-  file_count?: number;
 }
 
 @Injectable({ providedIn: 'root' })

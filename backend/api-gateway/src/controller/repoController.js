@@ -128,13 +128,14 @@ async function getRepo(req, res, next) {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT r.id, r.github_url, r.status, r.created_at,
+      `SELECT r.id, r.github_url, r.status, r.task_id, r.created_at, r.updated_at,
               r.last_indexed_commit, COUNT(f.id) as file_count
-       FROM repos r
-       LEFT JOIN files f ON f.repo_id = r.id
-       WHERE r.id = $1 AND r.user_id = $2
-       GROUP BY r.id`,
-      [id, req.user.id]
+      FROM repos r
+      LEFT JOIN files f ON f.repo_id = r.id
+      WHERE r.user_id = $1
+      GROUP BY r.id
+      ORDER BY r.created_at DESC`,
+      [req.user.id]
     );
     if (!result.rows[0]) {
       return res.status(404).json({ error: 'Repo not found' });
@@ -159,7 +160,7 @@ async function getRepoFiles(req, res, next) {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT path, language, index_status
+      `SELECT path, language, index_status, size_bytes
        FROM files
        WHERE repo_id = $1
        ORDER BY path ASC`,
@@ -171,22 +172,6 @@ async function getRepoFiles(req, res, next) {
   }
 }
 
-/**
- * Returns raw file content for the code viewer.
- *
- * The ingestion worker only ever stores parsed AST *chunks* (function/class
- * bodies with line ranges) in Postgres — never the full file text — so
- * there's nothing local to read the whole file from. Instead this fetches
- * the file straight from GitHub at the commit that was actually indexed
- * (`last_indexed_commit`), so line numbers line up with what got chunked.
- *
- * Caveats:
- * - Only works for public repos, or private repos if you later add a stored
- *   GitHub token and an Authorization header to the raw.githubusercontent.com
- *   request. Right now a private repo will 404 here.
- * - Falls back to `HEAD` if a repo hasn't finished indexing yet (no commit
- *   recorded), which may not match line numbers shown elsewhere.
- */
 async function getFileContent(req, res, next) {
   try {
     const { id } = req.params;

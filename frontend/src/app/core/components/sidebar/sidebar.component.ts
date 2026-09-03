@@ -13,7 +13,6 @@ export class SidebarComponent {
   navItems = [
     { label: 'Dashboard', route: '/dashboard' }, 
     { label: 'Search History', route: '/history' },
-    { label: 'Team', route: '/team' },
     { label: 'Settings', route: '/settings' },
   ];
 

@@ -36,11 +36,6 @@ const routes: Routes = [
       import('./core/components/search-history/search-history.component').then((m) => m.SearchHistoryComponent)
   },
   { 
-    path: 'team', 
-    loadComponent: () => 
-      import('./core/components/team-management/team-management.component').then(m => m.TeamManagementComponent) 
-  },
-  { 
     path: 'settings', 
     loadComponent: () => import('./core/components/setting/setting.component').then(m => m.SettingsComponent) 
   },

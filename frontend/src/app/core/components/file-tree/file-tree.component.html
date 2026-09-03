@@ -1,4 +1,5 @@
 <div class="file-tree">
+  
   <div class="tree-body">
     @for (node of flatNodes; track node.path) {
       <div
@@ -40,4 +41,26 @@
       }
     }
   </div>
+  @if (languageStats.length > 0) {
+    <div class="lang-stats">
+      <div class="lang-bar">
+        @for (stat of languageStats; track stat.language) {
+          <div
+            class="lang-segment"
+            [style.width.%]="stat.percent"
+            [style.background]="stat.color"
+            [title]="stat.language + ' ' + stat.percent + '%'">
+          </div>
+        }
+      </div>
+      <div class="lang-legend">
+        @for (stat of languageStats; track stat.language) {
+          <span class="lang-legend-item">
+            <span class="lang-dot" [style.background]="stat.color"></span>
+            {{ stat.language }} {{ stat.percent }}%
+          </span>
+        }
+      </div>
+    </div>
+  }
 </div>

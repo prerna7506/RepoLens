@@ -12,8 +12,7 @@ const client = new OpenAI({
 
 const enc = get_encoding('cl100k_base');
 
-// ─── Token guard ──────────────────────────────────────────
-function trimToContextLimit(chunks, question, limit = 12000) {
+function trimToContextLimit(chunks, question, limit = 2500) {
     let tokens = enc.encode(question).length;
     const kept = [];
     for (const chunk of chunks) {
@@ -149,7 +148,7 @@ Return exactly this shape:
                 }
             ],
             temperature: 0.1,
-            max_tokens: 4096
+            max_tokens: 1024
         });
 
         // 8. Parse response safely
