@@ -1,0 +1,102 @@
+<div class="explorer-shell">
+  <app-search></app-search>
+
+  <div class="explorer-body">
+    <app-sidebar class="side-nav"></app-sidebar>
+
+    <div class="main-panel">
+      <!-- Repo header -->
+      <div class="repo-header-row">
+        <div class="breadcrumb">
+          <a routerLink="/repositories">Repositories</a>
+          <span>/</span>
+          <strong>{{ repoOwner }}/{{ repoName }}</strong>
+          <span class="branch-pill">{{ branch }}</span>
+        </div>
+        <div class="header-actions">
+          <button 
+          class="btn-primary"
+          (click)="openChat(repoId)"
+          >✦ Ask AI Assistant
+        </button>
+        </div>
+      </div>
+
+      <!-- ═══ EXPLORER GRID ═══ -->
+      <div class="explorer-grid">
+        <!-- File tree -->
+        <aside class="file-panel">
+          <div class="file-panel-title">FILES & DIRECTORIES</div>
+          <app-file-tree 
+            [repoId]="repoId" 
+            (fileSelected)="onFileSelected($event)">
+          </app-file-tree>
+        </aside>
+
+        <!-- Code viewer (identical structure to chat component) -->
+        <div class="code-panel">
+          @if (openTabs.length === 0) {
+            <div class="code-empty">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <p>Open a file from the file tree to view it here.</p>
+            </div>
+          } @else {
+            <div class="code-tabs-row">
+              <div class="code-tabs">
+                @for (tab of openTabs; track tab.path; let i = $index) {
+                  <button class="code-tab" [class.active]="i === activeTabIndex" (click)="selectTab(i)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    <span>{{ tab.name }}</span>
+                    <span class="tab-close" (click)="closeTab(i, $event)">✕</span>
+                  </button>
+                }
+              </div>
+              <div class="breadcrumb">
+                @for (part of breadcrumb(activeTab?.path || ''); track $index; let last = $last) {
+                  <span [class.last]="last">{{ part }}</span>
+                  @if (!last) { <span class="sep">›</span> }
+                }
+              </div>
+            </div>
+
+            @if (activeFileViewers.length > 0) {
+              <div class="presence-strip">
+                <span class="presence-dot"></span>
+                <strong>{{ activeFileViewers[0].username }}</strong> is viewing this file
+              </div>
+            }
+
+            <div class="code-scroll">
+              @if (activeTab; as tab) {
+                @if (tab.loading) {
+                  <div class="code-loading">Loading file…</div>
+                } @else if (tab.error) {
+                  <div class="code-loading">{{ tab.error }}</div>
+                } @else {
+                  @for (line of tab.lines; track $index; let i = $index) {
+                    <div class="code-line">
+                      <span class="line-number">{{ i + 1 }}</span>
+                      <span class="line-content" [innerHTML]="line"></span>
+                    </div>
+                  }
+                }
+              }
+            </div>
+
+            <div class="status-bar">
+              <span>{{ activeTab?.language || 'Plain Text' }}</span>
+              <span>UTF-8</span>
+              <span class="status-right">AI Context Ready</span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -12,7 +12,9 @@ const client = new OpenAI({
 
 const enc = get_encoding('cl100k_base');
 
-function trimToContextLimit(chunks, question, limit = 2500) {
+// gpt-oss-120b has a 65,536 max-completion ceiling (vs Qwen's 16,384),
+// so we can afford a slightly larger context window than before.
+function trimToContextLimit(chunks, question, limit = 3000) {
     let tokens = enc.encode(question).length;
     const kept = [];
     for (const chunk of chunks) {
@@ -45,22 +47,39 @@ function reciprocalRankFusion(vectorResults, textResults, k = 60) {
         .map(([id]) => lookup[id]);
 }
 
-// ─── Parse LLM response safely ────────────────────────────
-function parseLLMResponse(raw) {
-    // Strip <think>...</think> reasoning blocks
-    raw = raw.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-
-    // Strip markdown code blocks
-    raw = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-    // Extract JSON object
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-        throw new Error('No JSON found in LLM response');
+// ─── JSON Schema for the RAG answer ───────────────────────
+// strict: true + gpt-oss-120b => Groq uses constrained decoding, so the
+// response is GUARANTEED to match this shape. No <think> blocks, no
+// markdown fences, no malformed JSON — so no parseLLMResponse() needed.
+const REPO_ANSWER_SCHEMA = {
+    type: 'json_schema',
+    json_schema: {
+        name: 'repo_answer',
+        strict: true,
+        schema: {
+            type: 'object',
+            properties: {
+                answer: { type: 'string' },
+                citations: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            file: { type: 'string' },
+                            startLine: { type: 'integer' },
+                            endLine: { type: 'integer' },
+                            summary: { type: 'string' }
+                        },
+                        required: ['file', 'startLine', 'endLine', 'summary'],
+                        additionalProperties: false
+                    }
+                }
+            },
+            required: ['answer', 'citations'],
+            additionalProperties: false
+        }
     }
-
-    return JSON.parse(jsonMatch[0]);
-}
+};
 
 // ─── POST /api/query ──────────────────────────────────────
 async function queryRepo(req, res, next) {
@@ -131,30 +150,34 @@ async function queryRepo(req, res, next) {
             )
             .join('\n\n---\n\n');
 
-        // 7. Groq LLM generation
+        // 7. Groq LLM generation (gpt-oss-120b, strict JSON schema)
         const completion = await client.chat.completions.create({
-            model: 'qwen/qwen3.6-27b',
+            model: 'openai/gpt-oss-120b',
             messages: [
                 {
                     role: 'system',
-                    content: `You are a codebase assistant. Answer using ONLY the provided code snippets.
-You MUST respond with valid JSON only — no explanation, no markdown, no backticks, no <think> tags.
-Return exactly this shape:
-{"answer": "your explanation here", "citations": [{"file": "path/to/file.ts", "startLine": 10, "endLine": 25, "summary": "what this code does"}]}`
+                    content: 'You are a codebase assistant. Answer using ONLY the provided code snippets. If the snippets do not contain enough information to answer, say so in the answer field and return an empty citations array.'
                 },
                 {
                     role: 'user',
-                    content: `Code snippets:\n\n${context}\n\nQuestion: ${question}\n\nRespond with JSON only:`
+                    content: `Code snippets:\n\n${context}\n\nQuestion: ${question}`
                 }
             ],
             temperature: 0.1,
-            max_tokens: 1024
+            max_tokens: 2000,
+            response_format: REPO_ANSWER_SCHEMA
         });
 
-        // 8. Parse response safely
-        const { answer, citations } = parseLLMResponse(
-            completion.choices[0].message.content
-        );
+        const finishReason = completion.choices[0].finish_reason;
+        if (finishReason === 'length') {
+            logger.error('query_truncated', { repo_id, user_id: userId });
+            return res.status(502).json({
+                error: 'Model response was truncated before completion. Try a narrower question.'
+            });
+        }
+
+        // 8. Parse response — guaranteed valid JSON under strict mode
+        const { answer, citations } = JSON.parse(completion.choices[0].message.content);
 
         // 9. Store query in DB
         await pool.query(
@@ -208,4 +231,17 @@ async function getAllHistory(req, res, next) {
         next(err);
     }
 }
-module.exports = { queryRepo, getHistory, getAllHistory };
+// ─── GET /api/query/stats ─────────────────────────────────
+async function getQueryStats(req, res, next) {
+    try {
+        const result = await pool.query(
+            `SELECT COUNT(*) AS total_queries FROM queries WHERE user_id = $1`,
+            [req.user.id]
+        );
+        res.json({ totalQueries: parseInt(result.rows[0].total_queries, 10) });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { queryRepo, getHistory, getAllHistory, getQueryStats };

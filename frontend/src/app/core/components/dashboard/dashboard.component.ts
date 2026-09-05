@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth.service';
 import { RepoService, Repo } from '../../services/repo.service';
 import { SearchComponent } from '../search/search.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
+import { QueryService } from '../../services/query.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -30,9 +31,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   showConnectSection = false;
   viewMode: 'grid' | 'list' = 'grid';
   stats = {
-    totalIndexed: '2.4k',
-    queries: '1.2k',
-    collaborators: 12
+    totalIndexed: 0,
+    queries: 0
   };
 
   private pollInterval: any;
@@ -54,6 +54,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     public auth: AuthService,
     private repoService: RepoService,
     private router: Router,
+    private queryService: QueryService,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
@@ -77,16 +78,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
       error: (err) => console.error('Failed to load profile:', err)
     });
     this.loadRepos();
-    this.pollInterval = setInterval(() => this.loadRepos(), 5000);
+    this.loadQueryStats();
+    this.pollInterval = setInterval(() => {
+      this.loadRepos();
+      this.loadQueryStats();
+    }, 5000);
   }
+
 
   loadRepos() {
     this.repoService.getRepos().subscribe({
       next: (res) => {
         this.recordStatusTimes(res.repos);
         this.repos.set(res.repos);
+        this.stats.totalIndexed = res.repos.reduce(
+          (sum, r) => sum + (parseInt(r.file_count as any, 10) || 0),
+          0
+        );
       },
       error: (err) => console.error('Failed to load repos:', err)
+    });
+  }
+
+  loadQueryStats() {
+    this.queryService.getStats().subscribe({
+      next: (res) => { this.stats.queries = res.totalQueries; },
+      error: (err) => console.error('Failed to load query stats:', err)
     });
   }
 
@@ -220,6 +237,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: () => this.repos.update(list => list.filter(r => r.id !== repoId)),
       error: (err) => console.error('Delete failed:', err)
     });
+  }
+  formatCount(n: number): string {
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+    return n.toString();
   }
 
   ngOnDestroy() {

@@ -38,4 +38,10 @@ export class RepoService {
   deleteRepo(id: string): Observable<void> {
     return this.http.delete<void>(`/api/repos/${id}`);
   }
+  getFileContent(repoId: string, path: string): Observable<{ content: string; language?: string }> {
+    return this.http.get<{ content: string; language?: string }>(
+      `/api/repos/${repoId}/file`,
+      { params: { path } }
+    );
+  }
 }

@@ -18,7 +18,7 @@ async function updateProfile(req, res) {
     }
     res.json({ user: result.rows[0] });
   } catch (err) {
-    if (err.code === '23505') { // unique_violation, e.g. username/email already taken
+    if (err.code === '23505') { 
       return res.status(409).json({ message: 'Username or email already in use' });
     }
     res.status(500).json({ message: 'Could not update profile' });

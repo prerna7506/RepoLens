@@ -32,7 +32,7 @@ export class QueryService {
       question,
       repo_id: repoId
     }).pipe(
-      timeout(300000) // 5 minute timeout
+      timeout(300000) 
     );
   }
 
@@ -48,8 +48,11 @@ export class QueryService {
       { params: { path } }
     );
   }
-  // query.service.ts — add alongside getHistory()
+  
   getAllHistory(): Observable<{ queries: QueryHistory[] }> {
     return this.http.get<{ queries: QueryHistory[] }>('/api/query/history');
+  }
+  getStats(): Observable<{ totalQueries: number }> {
+    return this.http.get<{ totalQueries: number }>('/api/query/stats');
   }
 }

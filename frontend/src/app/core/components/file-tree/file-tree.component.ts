@@ -64,12 +64,11 @@ export class FileTreeComponent implements OnInit, OnChanges {
 
   constructor(
     private http: HttpClient,
-    private cdr: ChangeDetectorRef,  // ✅ Force UI refresh
+    private cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
   ngOnInit() {
-    if (!isPlatformBrowser(this.platformId)) return;
     this.loadIfReady();
   }
 
@@ -80,6 +79,11 @@ export class FileTreeComponent implements OnInit, OnChanges {
   }
 
   loadIfReady() {
+    // Guarded here (not duplicated in both lifecycle hooks) so neither ngOnInit
+    // nor ngOnChanges can trigger an HTTP call during SSR — there's no browser,
+    // no auth cookie, and no isPlatformBrowser check was protecting ngOnChanges before.
+    if (!isPlatformBrowser(this.platformId)) return;
+
     if (!this.repoId) {
       this.errorMsg = 'No repo selected';
       this.flatNodes = [];
@@ -112,7 +116,6 @@ export class FileTreeComponent implements OnInit, OnChanges {
         this.cdr.detectChanges();
       },
       error: (err) => {
-        console.error('FileTree: API error', err);
         this.flatNodes = [];
         this.languageStats = [];
         this.errorMsg = err.status === 401 ? 'Unauthorized' : 'Failed to load';

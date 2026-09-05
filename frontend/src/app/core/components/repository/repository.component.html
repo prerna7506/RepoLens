@@ -43,7 +43,7 @@
           <div 
             class="repo-row" 
             *ngFor="let repo of filteredRepos; trackBy: trackById" 
-            [routerLink]="['/chat', repo.id]">
+            [routerLink]="repo.id ? ['/explore', repo.id] : null">
             
             <div class="repo-row-left">
               <div class="repo-avatar">{{ repo.name[0].toUpperCase() }}</div>

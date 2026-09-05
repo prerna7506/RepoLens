@@ -1,8 +1,8 @@
 import { Injectable, signal, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
-
+import { Observable, tap, firstValueFrom } from 'rxjs';
+import { Router } from '@angular/router';
 interface RefreshResponse {
   accessToken: string;
 }
@@ -22,11 +22,31 @@ export class AuthService {
   private accessToken: string | null = null;
   isAuthenticated = signal<boolean>(false);
   currentUser = signal<UserProfile | null>(null);
+  isInitialized = signal<boolean>(false);
 
   constructor(
     private http: HttpClient,
+    private router: Router,
     @Inject(PLATFORM_ID) private platformId: Object,
   ) {}
+
+  async init(): Promise<void> {
+    if (!isPlatformBrowser(this.platformId)) {
+      this.isInitialized.set(true);
+      return;
+    }
+
+    try {
+      const res = await firstValueFrom(
+        this.http.post<RefreshResponse>('/auth/refresh', {}, { withCredentials: true })
+      );
+      this.setAccessToken(res.accessToken);
+    } catch {
+      this.setAccessToken(null);
+    } finally {
+      this.isInitialized.set(true);
+    }
+  }
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
@@ -55,16 +75,22 @@ export class AuthService {
       .pipe(tap((user) => this.currentUser.set(user)));
   }
 
-  // auth.service.ts (add to existing service)
   updateProfile(payload: { name: string; username: string; email: string }) {
     return this.http.put<{ user: any }>('/api/users/profile', payload).pipe(
-      tap(res => this.currentUser.set(res.user))  // keep signal in sync
+      tap(res => this.currentUser.set(res.user))
     );
   }
-  logout() {
-    this.http.post('/auth/logout', {}, { withCredentials: true }).subscribe(() => {
-      this.setAccessToken(null);
-      this.currentUser.set(null);
+
+  logout(): void {
+    this.http.post('/api/auth/logout', {}, { withCredentials: true }).subscribe({
+      next: () => this.finishLogout(),
+      error: () => this.finishLogout()
     });
+  }
+
+  private finishLogout(): void {
+    this.currentUser.set(null);
+    this.setAccessToken(null);  
+    this.router.navigate(['/login']);
   }
 }

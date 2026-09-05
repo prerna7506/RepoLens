@@ -502,11 +502,6 @@
   to { transform: rotate(360deg); }
 }
 
-.repo-metrics {
-  display: flex;
-  gap: 16px;
-}
-
 .metric {
   display: flex;
   align-items: center;
@@ -631,13 +626,14 @@
 .add-repo-card {
   border: 2px dashed #2d3748;
   border-radius: 16px;
-  padding: 32px;
+  padding: 22px;               
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  min-height: 300px;
+  height: 100%;              
+  min-height: auto;           
   background: transparent;
   transition: all 0.25s ease;
 }
@@ -656,7 +652,7 @@
   align-items: center;
   justify-content: center;
   color: #94a3b8;
-  margin-bottom: 16px;
+  margin: 0 auto 16px auto;    /* centre horizontally */
   transition: all 0.2s;
 }
 
@@ -665,20 +661,11 @@
   color: #e2e8f0;
   transform: scale(1.05);
 }
-
-.add-repo-content h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #f8fafc;
-  margin: 0 0 8px 0;
-}
-
-.add-repo-content p {
-  font-size: 14px;
-  color: #64748b;
-  margin: 0 0 24px 0;
-  line-height: 1.5;
-  max-width: 240px;
+.add-repo-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
 .add-repo-form {

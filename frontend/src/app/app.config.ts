@@ -1,13 +1,13 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, Routes } from '@angular/router';
 import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { authGuard } from './core/guards/auth.guard';
+import { AuthService } from './core/services/auth.service';
 
 const routes: Routes = [
-  // Landing page (root)
   {
     path: '',
     pathMatch: 'full',
@@ -53,6 +53,10 @@ const routes: Routes = [
     path: 'repositories', 
     loadComponent: () => import('./core/components/repository/repository.component').then(m => m.RepositoryComponent)
   },
+  {
+  path: 'explore/:id',
+  loadComponent: () => import('./core/components/code-explorer/code-explorer.component').then(m => m.CodeExplorerComponent)
+},
   { path: '**', redirectTo: '' }
 ];
 
@@ -64,6 +68,10 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(
       withFetch(),
       withInterceptors([authInterceptor])
-    )
+    ),
+    provideAppInitializer(() => {
+      const authService = inject(AuthService);
+      return authService.init();
+    })
   ]
 };

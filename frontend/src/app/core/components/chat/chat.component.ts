@@ -62,7 +62,6 @@ export class ChatComponent implements OnInit, OnDestroy {
   messages: Message[] = [];
   isLoading = false;
   activeUsers: ActiveUser[] = [];
-  showSettings = false;
   selectedFile = '';
 
   activeDrawer: 'files' | 'history' | null = null;

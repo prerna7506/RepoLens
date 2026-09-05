@@ -7,7 +7,7 @@ const WORKER_URL = process.env.WORKER_URL || 'http://localhost:8000';
 const WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET || '';
 
 function verifySignature(rawBody, signature) {
-  if (!WEBHOOK_SECRET) return true; // skip in dev if no secret set
+  if (!WEBHOOK_SECRET) return true;
   const expected = `sha256=${crypto
     .createHmac('sha256', WEBHOOK_SECRET)
     .update(rawBody)
