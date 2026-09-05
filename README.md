@@ -8,13 +8,13 @@ Repos are cloned, AST-parsed into function/class-level chunks, embedded, and ind
 
 ```mermaid
 flowchart TB
-    FE["Angular 17 frontend<br/>SSR, standalone components"]
+    FE["Angular 21 frontend<br/>SSR, standalone components"]
     GW["Node.js / Express API gateway<br/>auth, REST API, Socket.io"]
     PG[("PostgreSQL + pgvector<br/>chunks, embeddings, FTS")]
     RD[("Redis (Upstash)<br/>queue, cache, rate limiter")]
     IW["Python / FastAPI + Celery<br/>clone, parse, chunk, embed"]
     GH["GitHub<br/>clone + webhooks"]
-    GR["Groq LLM<br/>qwen/qwen3.6-27b"]
+    GR["Groq LLM<br/>openai/gpt-oss-120b"]
 
     FE -->|REST + WebSocket| GW
     GW --> PG
@@ -27,22 +27,31 @@ flowchart TB
 ```
 
 1. User adds a repo → API gateway enqueues ingestion on the Python/Celery worker.
-2. Worker shallow-clones, parses with Tree-sitter, chunks at function/class level, embeds with `BAAI/bge-small-en-v1.5`, writes to Postgres (embedding cache in Redis by content SHA256).
-3. A question triggers vector search (pgvector) + full-text search (Postgres FTS), fused via Reciprocal Rank Fusion, trimmed with `tiktoken`, and sent to Groq for a cited JSON answer.
+2. Worker shallow-clones, parses ~20 file types (Tree-sitter AST for JS/TS, a generic line-block chunker for everything else — Python, Java, Go, Ruby, PHP, C/C++, Rust, HTML/CSS, JSON, YAML, Markdown, SQL, shell, Vue), embeds with `BAAI/bge-small-en-v1.5`, writes to Postgres (embedding cache in Redis by content SHA256).
+3. A question triggers vector search (pgvector) + full-text search (Postgres FTS), fused via Reciprocal Rank Fusion, trimmed with `tiktoken`, and sent to Groq (`openai/gpt-oss-120b`, chosen for its 65,536-token max-completion ceiling vs. smaller alternatives) for a cited JSON answer.
 4. Socket.io broadcasts shared query history and file-viewing presence to everyone viewing the same repo.
 5. GitHub webhooks trigger delta re-indexing of changed files only.
+
+## Features
+
+- GitHub OAuth login with short-lived access tokens + `httpOnly` refresh cookies (Redis-backed denylist on logout)
+- Connect a repo, watch ingestion progress, browse the file tree, and fetch file content via `GET /api/repos/:id/files` and `GET /api/repos/:id/files/content`
+- Hybrid semantic + keyword search with cited, clickable answers rendered in Monaco
+- Shared query history and live file-viewing presence per repo over Socket.io
+- GitHub webhook–driven delta re-indexing of only the changed files
+- Per-user query rate limiting
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | Angular 17 (SSR, signals), Socket.io client |
+| Frontend | Angular 21 (SSR, standalone components, signals), Socket.io client |
 | API Gateway | Node.js, Express 5, JWT auth, Socket.io |
-| Ingestion Worker | Python, FastAPI, Celery, Tree-sitter |
+| Ingestion Worker | Python, FastAPI, Celery, Tree-sitter + generic fallback chunker |
 | Database | PostgreSQL + pgvector (HNSW) + full-text search |
 | Queue / Cache | Redis (Upstash) |
 | Embeddings | `BAAI/bge-small-en-v1.5` |
-| LLM | Groq (`qwen/qwen3.6-27b`) |
+| LLM | Groq (`openai/gpt-oss-120b`) |
 
 ## Local development
 
@@ -61,4 +70,4 @@ celery -A app.celery_app worker --loglevel=info --pool=solo # --pool=solo on Win
 cd frontend && npm install && npm start                     # :4200
 ```
 
-Requires a root `.env` with `DATABASE_URL`, `REDIS_URL`, `GITHUB_CLIENT_ID/SECRET`, `GITHUB_WEBHOOK_SECRET`, `JWT_SECRET`, `GROQ_API_KEY`, `WORKER_URL`, `FRONTEND_URL`.
+Requires a root `.env` (see `.env.example`) with `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_CALLBACK_URL`, `GITHUB_WEBHOOK_SECRET`, `GROQ_API_KEY`, `WORKER_URL`, `FRONTEND_URL`, `PORT`.
