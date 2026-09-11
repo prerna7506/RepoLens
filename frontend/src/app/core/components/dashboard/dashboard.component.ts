@@ -27,7 +27,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   taskStatus = '';
   addError = '';
 
-  // Missing state the template expects
   showConnectSection = false;
   viewMode: 'grid' | 'list' = 'grid';
   stats = {
@@ -36,8 +35,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   };
 
   private pollInterval: any;
-
-  // Dynamic progress tracking
   private statusStartTimes = new Map<string, number>();
   private lastStatuses     = new Map<string, string>();
   private progressSpeed: Record<string, number> = {
@@ -147,7 +144,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  /* ── UI helpers ── */
   toggleConnect() {
     this.showConnectSection = !this.showConnectSection;
   }

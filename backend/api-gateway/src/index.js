@@ -7,7 +7,6 @@ const { initSocket } = require('./socket');
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 
-// 5 minute timeout for LLM calls
 server.timeout = 300000;
 server.keepAliveTimeout = 300000;
 server.headersTimeout = 310000;

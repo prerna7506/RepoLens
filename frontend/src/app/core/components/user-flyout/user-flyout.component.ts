@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, HostListener, ElementRef, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { AuthService, UserProfile as AuthUserProfile } from '../../services/auth.service'; // adjust path to match your actual location
+import { AuthService, UserProfile as AuthUserProfile } from '../../services/auth.service'; 
 
 export interface UserProfile {
   name: string;
@@ -24,20 +24,14 @@ export class UserFlyoutComponent {
   private router = inject(Router);
   private authService = inject(AuthService);
 
-  // Optional override — if not passed in, falls back to AuthService.currentUser signal.
   @Input() user?: UserProfile;
   @Input() isOpen = false;
   @Output() isOpenChange = new EventEmitter<boolean>();
   @Output() logout = new EventEmitter<void>();
-
-  // Single source of truth: AuthService.currentUser, with @Input as an optional override.
-  // Returns null (not undefined) while the profile hasn't loaded yet — the template
-  // guards on this with @if so nothing tries to read properties off an empty value.
   currentUser = computed<UserProfile | null>(() => {
     if (this.user) return this.user;
     const u: AuthUserProfile | null = this.authService.currentUser();
     if (!u) return null;
-    // GitHub users often have no public "name" set — fall back to username/login.
     const displayName = u.name || u.username || u.github_login || 'User';
     return {
       name: displayName,

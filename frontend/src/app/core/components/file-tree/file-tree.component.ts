@@ -79,9 +79,6 @@ export class FileTreeComponent implements OnInit, OnChanges {
   }
 
   loadIfReady() {
-    // Guarded here (not duplicated in both lifecycle hooks) so neither ngOnInit
-    // nor ngOnChanges can trigger an HTTP call during SSR — there's no browser,
-    // no auth cookie, and no isPlatformBrowser check was protecting ngOnChanges before.
     if (!isPlatformBrowser(this.platformId)) return;
 
     if (!this.repoId) {
@@ -212,7 +209,7 @@ export class FileTreeComponent implements OnInit, OnChanges {
     }
 
     const totalBytes = Array.from(bytesByLang.values()).reduce((a, b) => a + b, 0);
-    if (totalBytes === 0) return []; // avoid divide-by-zero if size_bytes isn't populated yet
+    if (totalBytes === 0) return []; 
 
     return Array.from(bytesByLang.entries())
       .map(([language, bytes]) => ({

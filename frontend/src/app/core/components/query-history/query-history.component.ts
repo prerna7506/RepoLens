@@ -1,11 +1,13 @@
 import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitter, Inject, PLATFORM_ID, ChangeDetectorRef } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { Citation } from '../../services/query.service';
 
 interface HistoryItem {
   id: string;
   question: string;
   answer: string;
+  sources: Citation[];
   created_at: string;
 }
 
@@ -18,7 +20,7 @@ interface HistoryItem {
 })
 export class QueryHistoryComponent implements OnInit, OnChanges {
   @Input() repoId = '';
-  @Output() questionSelected = new EventEmitter<string>();
+  @Output() historyItemSelected = new EventEmitter<HistoryItem>();
 
   history: HistoryItem[] = [];
 
@@ -47,7 +49,7 @@ export class QueryHistoryComponent implements OnInit, OnChanges {
     ).subscribe({
       next: (res) => {
         this.history = this.dedupe(res.queries || []);
-        this.cdr.detectChanges();   // ✅ force render — subscribe callbacks don't auto-trigger CD
+        this.cdr.detectChanges();
       },
       error: () => {
         this.history = [];
@@ -57,7 +59,11 @@ export class QueryHistoryComponent implements OnInit, OnChanges {
   }
 
   select(item: HistoryItem) {
-    this.questionSelected.emit(item.question);
+    this.historyItemSelected.emit(item);
+  }
+
+  dateOnly(dateStr: string): string {
+    return new Date(dateStr).toISOString().split('T')[0];
   }
 
   timeAgo(dateStr: string): string {
@@ -84,7 +90,6 @@ export class QueryHistoryComponent implements OnInit, OnChanges {
         result.push(item);
       }
     }
-
     return result;
   }
 }

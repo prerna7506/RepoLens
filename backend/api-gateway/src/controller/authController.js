@@ -47,7 +47,6 @@ async function githubCallback(req, res, next) {
     });
     const { id: githubId, login: username, avatar_url, name, email } = profileResp.data;
 
-    // GitHub's /user email can be null if private — fall back to /user/emails
     let resolvedEmail = email;
     if (!resolvedEmail) {
       try {
@@ -61,10 +60,6 @@ async function githubCallback(req, res, next) {
       }
     }
 
-    // IMPORTANT: username/name/email are user-editable via PUT /api/users/profile.
-    // On conflict (returning user), only refresh avatar_url from GitHub — leave the
-    // user's customized username/name/email alone. They are only set from GitHub
-    // data on first INSERT (brand-new user).
     const result = await pool.query(
       `INSERT INTO users (github_id, username, avatar_url, name, email)
        VALUES ($1, $2, $3, $4, $5)
@@ -111,7 +106,7 @@ async function getMe(req, res) {
   try {
     const result = await pool.query(
       'SELECT id, username, name, email, avatar_url, github_id FROM users WHERE id = $1',
-      [req.user.id] // was req.user.sub — requireAuth reshapes the decoded JWT payload to .id, not .sub
+      [req.user.id] 
     );
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });

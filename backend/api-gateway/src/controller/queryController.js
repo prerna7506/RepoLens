@@ -4,7 +4,7 @@ const { logger } = require('../utils/logger');
 const { get_encoding } = require('tiktoken');
 const axios = require('axios');
 
-// ─── GROQ CLIENT (OpenAI-compatible) ─────────────────────
+
 const client = new OpenAI({
     apiKey: process.env.GROQ_API_KEY,
     baseURL: 'https://api.groq.com/openai/v1'
@@ -12,8 +12,7 @@ const client = new OpenAI({
 
 const enc = get_encoding('cl100k_base');
 
-// gpt-oss-120b has a 65,536 max-completion ceiling (vs Qwen's 16,384),
-// so we can afford a slightly larger context window than before.
+
 function trimToContextLimit(chunks, question, limit = 3000) {
     let tokens = enc.encode(question).length;
     const kept = [];
@@ -26,7 +25,6 @@ function trimToContextLimit(chunks, question, limit = 3000) {
     return kept;
 }
 
-// ─── Reciprocal Rank Fusion ───────────────────────────────
 function reciprocalRankFusion(vectorResults, textResults, k = 60) {
     const scores = {};
     const lookup = {};
@@ -47,10 +45,6 @@ function reciprocalRankFusion(vectorResults, textResults, k = 60) {
         .map(([id]) => lookup[id]);
 }
 
-// ─── JSON Schema for the RAG answer ───────────────────────
-// strict: true + gpt-oss-120b => Groq uses constrained decoding, so the
-// response is GUARANTEED to match this shape. No <think> blocks, no
-// markdown fences, no malformed JSON — so no parseLLMResponse() needed.
 const REPO_ANSWER_SCHEMA = {
     type: 'json_schema',
     json_schema: {
@@ -81,7 +75,6 @@ const REPO_ANSWER_SCHEMA = {
     }
 };
 
-// ─── POST /api/query ──────────────────────────────────────
 async function queryRepo(req, res, next) {
     try {
         const { question, repo_id } = req.body;
@@ -196,7 +189,6 @@ async function queryRepo(req, res, next) {
     }
 }
 
-// ─── GET /api/query/:repo_id/history ─────────────────────
 async function getHistory(req, res, next) {
     try {
         const { repo_id } = req.params;
@@ -231,7 +223,7 @@ async function getAllHistory(req, res, next) {
         next(err);
     }
 }
-// ─── GET /api/query/stats ─────────────────────────────────
+
 async function getQueryStats(req, res, next) {
     try {
         const result = await pool.query(

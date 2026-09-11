@@ -24,7 +24,6 @@ export class SettingsComponent implements OnInit {
   saveStatus: 'idle' | 'success' | 'error' = 'idle';
   saveError = '';
 
-  // Profile form — reactive to auth signal
   profile = {
     fullName: '',
     username: '',
@@ -34,7 +33,6 @@ export class SettingsComponent implements OnInit {
     githubHandle: ''
   };
 
-  // API Keys
   openaiKey = 'sk-••••••••••••••••••••••••••••••';
   openaiKeyVisible = false;
   webhookSecret = 'whsec_8f92a4b...';
@@ -68,7 +66,6 @@ export class SettingsComponent implements OnInit {
 }
 
   ngOnInit() {
-    // If user not loaded yet, try fetching
     if (!this.auth.currentUser() && this.auth.isAuthenticated()) {
       this.auth.fetchProfile().subscribe({
         error: () => console.warn('Failed to load user profile')
@@ -92,7 +89,7 @@ export class SettingsComponent implements OnInit {
       next: () => {
         this.saving = false;
         this.saveStatus = 'success';
-        setTimeout(() => this.saveStatus = 'idle', 3000); // auto-dismiss
+        setTimeout(() => this.saveStatus = 'idle', 3000); 
       },
       error: (err) => {
         this.saving = false;
@@ -103,7 +100,6 @@ export class SettingsComponent implements OnInit {
   }
 
   onCancel() {
-    // Reset from signal
     const user = this.auth.currentUser();
     if (user) {
       this.profile.fullName = user.name || '';

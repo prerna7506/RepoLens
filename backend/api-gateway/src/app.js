@@ -16,8 +16,6 @@ const webhookRoutes = require('./routes/webhooks');
 const pool = require('./db/db_connection.js'); 
 const app = express();
 
-// Webhook route MUST come before express.json()
-// Raw body is needed for signature verification
 app.use('/webhooks', webhookRoutes);
 
 app.use(cors({
@@ -39,7 +37,7 @@ app.get('/api/me', requireAuth, async (req, res, next) => {
   try {
     const result = await pool.query(
       'SELECT id, username, name, email, avatar_url, github_id FROM users WHERE id = $1',
-      [req.user.id]   // was req.user.sub
+      [req.user.id]  
     );
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });

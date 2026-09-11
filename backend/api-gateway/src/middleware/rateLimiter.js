@@ -13,10 +13,8 @@ async function rateLimiter(req, res, next) {
     const now = Date.now();
     const windowStart = now - WINDOW_SECONDS * 1000;
 
-    // Remove old entries outside window
     await redisClient.zRemRangeByScore(key, '-inf', windowStart);
 
-    // Count requests in current window
     const count = await redisClient.zCard(key);
 
     if (count >= MAX_REQUESTS) {
@@ -27,7 +25,6 @@ async function rateLimiter(req, res, next) {
       });
     }
 
-    // Add current request — score and value must be numbers/strings
     await redisClient.zAdd(key, {
       score: now,
       value: now.toString()
@@ -39,9 +36,8 @@ async function rateLimiter(req, res, next) {
 
     next();
   } catch (err) {
-    // Don't crash Express if rate limiter fails
     logger.error('rate_limiter_error', { error: err.message });
-    next(); // allow request through if limiter errors
+    next(); 
   }
 }
 

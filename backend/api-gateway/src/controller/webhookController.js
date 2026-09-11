@@ -44,7 +44,6 @@ async function handleWebhook(req, res) {
       return res.status(400).json({ error: 'No clone_url in payload' });
     }
 
-    // Find repo in our DB by clone URL
     const repoResult = await pool.query(
       'SELECT id FROM repos WHERE clone_url = $1 LIMIT 1',
       [cloneUrl]
@@ -57,7 +56,6 @@ async function handleWebhook(req, res) {
 
     const repoId = repoResult.rows[0].id;
 
-    // Extract changed files from all commits
     const changedFiles = [
       ...new Set([
         ...payload.commits.flatMap(c => c.modified || []),
@@ -75,7 +73,6 @@ async function handleWebhook(req, res) {
       removed: removedFiles.length
     });
 
-    // Delete removed files from DB
     for (const filePath of removedFiles) {
       await pool.query(
         'DELETE FROM files WHERE repo_id = $1 AND path = $2',
@@ -83,7 +80,6 @@ async function handleWebhook(req, res) {
       );
     }
 
-    // Trigger delta re-index for changed/added files
     if (changedFiles.length > 0) {
       const workerResponse = await axios.post(`${WORKER_URL}/ingest`, {
         repo_id: repoId,

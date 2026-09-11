@@ -113,18 +113,15 @@ export class SearchHistoryComponent implements OnInit {
   private applyFilters() {
     let result = [...this.allEntries];
 
-    // 1. Repo filter (independent)
     if (this.activeRepoFilter !== 'all') {
       result = result.filter((e) => e.repoId === this.activeRepoFilter);
     }
 
-    // 2. Time filter (works ON TOP of repo filter)
     if (this.last7Only) {
       const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
       result = result.filter((e) => new Date(e.created_at).getTime() >= cutoff);
     }
 
-    // 3. Search term
     const term = this.searchTerm.trim().toLowerCase();
     if (term) {
       result = result.filter(

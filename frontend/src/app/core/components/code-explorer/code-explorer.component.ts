@@ -62,11 +62,6 @@ export class CodeExplorerComponent implements OnInit {
 
   ngOnInit() {
     this.repoId = this.route.snapshot.paramMap.get('id') || '';
-
-    // Guard: no access token exists yet during SSR, so this call always 401s.
-    // The previous version had no error callback at all — when an observable
-    // errors with nothing to catch it, RxJS rethrows it as an uncaught exception,
-    // which crashed the Node SSR process on every load.
     if (!isPlatformBrowser(this.platformId)) return;
 
     this.repoService.getRepos().subscribe({
@@ -83,8 +78,6 @@ export class CodeExplorerComponent implements OnInit {
       }
     });
   }
-
-  /* ── File opening ── */
 
   onFileSelected(path: string) {
     const existingIndex = this.openTabs.findIndex(t => t.path === path);
@@ -106,9 +99,6 @@ export class CodeExplorerComponent implements OnInit {
     this.activeTabIndex = this.openTabs.length - 1;
     this.activeTabPath = path;
 
-    // Was this.repoService.getFileContent(...) — that method hits the
-    // not-yet-implemented /api/repos/:id/file route. QueryService.getFileContent
-    // is the same method chat.component.ts uses successfully.
     this.queryService.getFileContent(this.repoId, path).subscribe({
       next: (res: any) => {
         tab.lines = this.highlightCode(res.content, tab.language);
@@ -137,8 +127,6 @@ export class CodeExplorerComponent implements OnInit {
     }
     this.activeTabPath = this.openTabs[this.activeTabIndex]?.path || null;
   }
-
-  /* ── Helpers ── */
 
   get activeTab(): OpenTab | undefined {
     return this.openTabs[this.activeTabIndex];

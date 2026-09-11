@@ -66,15 +66,13 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   activeDrawer: 'files' | 'history' | null = null;
 
-  // Code viewer state
   openTabs: FileTab[] = [];
   activeTabIndex = 0;
   highlightRange: { start: number; end: number } | null = null;
 
   @ViewChild('codeScroll') codeScrollRef?: ElementRef<HTMLDivElement>;
-  @ViewChild('resizer') resizerRef!: ElementRef<HTMLDivElement>;  // ← ADD THIS
-
-  private isResizing = false;  // ← ADD THIS
+  @ViewChild('resizer') resizerRef!: ElementRef<HTMLDivElement>;  
+  private isResizing = false; 
 
   constructor(
     private route: ActivatedRoute,
@@ -194,11 +192,29 @@ export class ChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  onHistoryItemSelected(item: any) {
+  this.activeDrawer = null;
+  this.cdr.detectChanges();
+    this.messages.push({ role: 'user', content: item.question });
+    this.messages.push({
+      role: 'assistant',
+      content: item.answer,
+      citations: item.sources || [],
+      loading: false
+    });
+
+    this.scrollToBottom();
+    this.cdr.detectChanges();
+  }
+
   onHistorySelected(question: string) {
     this.activeDrawer = null;
-    this.cdr.detectChanges(); 
+    this.cdr.detectChanges();
     this.question = question;
-    this.ask();
+    setTimeout(() => {
+      this.ask();
+      this.scrollToBottom();
+    }, 100);
   }
 
   onKeydown(event: KeyboardEvent) {
@@ -224,7 +240,6 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.activeDrawer = this.activeDrawer === drawer ? null : drawer;
   }
 
-  /* ── Panel resizing ── */
 
   startResize(event: MouseEvent | TouchEvent): void {
     this.isResizing = true;

@@ -24,7 +24,7 @@ async function createRepo(req, res, next) {
       ? github_url
       : `${github_url}.git`;
 
-    // Check if repo already exists for this user
+    
     const existing = await pool.query(
       `SELECT id, status FROM repos 
        WHERE user_id = $1 
@@ -36,7 +36,7 @@ async function createRepo(req, res, next) {
     if (existing.rows[0]) {
       const { status, id } = existing.rows[0];
 
-      // If failed → auto retry
+      
       if (status === 'failed') {
         const workerResponse = await axios.post(`${WORKER_URL}/ingest`, {
           repo_id: id,
@@ -58,20 +58,19 @@ async function createRepo(req, res, next) {
         });
       }
 
-      // If completed → block
+      
       if (status === 'completed') {
         return res.status(400).json({
           error: 'Repo already indexed. Use the Re-index button instead.'
         });
       }
 
-      // If still processing → block
+      
       return res.status(400).json({
         error: `Repo is currently being processed (${status})`
       });
     }
 
-    // Insert new repo
     const result = await pool.query(
       `INSERT INTO repos (user_id, github_url, clone_url, status)
        VALUES ($1, $2, $3, 'pending')
@@ -86,7 +85,6 @@ async function createRepo(req, res, next) {
     });
     const taskId = workerResponse.data.task_id;
 
-    // ✅ save task_id
     await pool.query(
       'UPDATE repos SET status = $1, task_id = $2 WHERE id = $3',
       ['queued', taskId, repo.id]
@@ -104,10 +102,6 @@ async function createRepo(req, res, next) {
 
 async function listRepos(req, res, next) {
   try {
-    // NOTE: added the same LEFT JOIN + COUNT that getRepo() already uses,
-    // so file_count is populated in the list view too (dashboard cards and
-    // the chat composer's "Index loaded for ... (N files)" line both read
-    // this field and were previously always getting undefined here).
     const result = await pool.query(
       `SELECT r.id, r.github_url, r.status, r.task_id, r.created_at,
               r.last_indexed_commit, COUNT(f.id) as file_count
@@ -204,8 +198,6 @@ async function getFileContent(req, res, next) {
     const rawUrl = `https://raw.githubusercontent.com/${owner}/${repoName}/${ref}/${encodedPath}`;
 
     const response = await axios.get(rawUrl, {
-      // Force plain text — otherwise axios will JSON.parse files like
-      // package.json into an object instead of returning a string.
       transformResponse: (data) => data
     });
 
@@ -235,7 +227,6 @@ async function reindexRepo(req, res, next) {
   try {
     const { id } = req.params;
 
-    // ✅ use correct variable names
     const result = await pool.query(
       'SELECT clone_url FROM repos WHERE id = $1 AND user_id = $2',
       [id, req.user.id]
@@ -250,11 +241,11 @@ async function reindexRepo(req, res, next) {
       { repo_id: id, clone_url }
     );
 
-    const taskId = workerResponse.data.task_id; // ✅ correct variable
+    const taskId = workerResponse.data.task_id; 
 
     await pool.query(
       'UPDATE repos SET status = $1, task_id = $2 WHERE id = $3',
-      ['queued', taskId, id] // ✅ use id not repo.id
+      ['queued', taskId, id] 
     );
 
     res.json({ task_id: taskId });
