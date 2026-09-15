@@ -1,0 +1,15 @@
+{
+  "buildCommand": "cd frontend && npm run build -- --configuration production",
+  "outputDirectory": "frontend/dist/frontend/browser",
+  "installCommand": "npm install && cd frontend && npm install",
+  "env": {
+    "ANGULAR_API_URL": "@angular_api_url",
+    "ANGULAR_SOCKET_URL": "@angular_socket_url"
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
