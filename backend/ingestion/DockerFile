@@ -13,10 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN useradd -m -u 1001 celeryuser
+RUN useradd -m -u 1001 celeryuser && chmod +x ./start.sh
 USER celeryuser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD python -c "import redis; redis.Redis.from_url(os.getenv('REDIS_URL')).ping()" || exit 1
+  CMD python -c "import redis, os; redis.Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost')).ping()" || exit 1
 
 CMD ["./start.sh"]
