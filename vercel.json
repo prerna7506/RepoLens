@@ -1,7 +1,7 @@
 {
   "buildCommand": "cd frontend && npm run build -- --configuration production",
   "outputDirectory": "frontend/dist/frontend/browser",
-  "installCommand": "npm install && cd frontend && npm install",
+  "installCommand": "cd frontend && npm install",
   "rewrites": [
     {
       "source": "/api/(.*)",
