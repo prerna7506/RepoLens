@@ -3,7 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { io, Socket } from 'socket.io-client';
 import { AuthService } from './auth.service';
 
-const BACKEND_URL =  isDevMode() ? 'http://localhost:3000' : 'https://<RENDER_API_URL>';
+const BACKEND_URL =  isDevMode() ? 'http://localhost:3000' : 'https://repolens-web.onrender.com';
 @Injectable({ providedIn: 'root' })
 export class SocketService {
   private socket: Socket | null = null;

@@ -5,11 +5,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://<RENDER_API_URL>/api/$1"
+      "destination": "https://repolens-web.onrender.com/api/$1"
     },
     {
       "source": "/auth/(.*)",
-      "destination": "https://<RENDER_API_URL>/auth/$1"
+      "destination": "https://repolens-web.onrender.com/auth/$1"
     },
     {
       "source": "/(.*)",
