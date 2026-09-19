@@ -1,8 +1,9 @@
-import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
+import { Injectable, Inject, PLATFORM_ID, isDevMode } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { io, Socket } from 'socket.io-client';
 import { AuthService } from './auth.service';
 
+const BACKEND_URL =  isDevMode() ? 'http://localhost:3000' : 'https://<RENDER_API_URL>';
 @Injectable({ providedIn: 'root' })
 export class SocketService {
   private socket: Socket | null = null;
@@ -16,7 +17,7 @@ export class SocketService {
     if (!isPlatformBrowser(this.platformId)) return;
     if (this.socket?.connected) return;
 
-    this.socket = io('http://localhost:3000', {
+    this.socket = io(BACKEND_URL, {
       auth: { token: this.auth.getAccessToken() },
       transports: ['websocket']
     });

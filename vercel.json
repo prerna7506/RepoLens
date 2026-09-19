@@ -2,11 +2,15 @@
   "buildCommand": "cd frontend && npm run build -- --configuration production",
   "outputDirectory": "frontend/dist/frontend/browser",
   "installCommand": "npm install && cd frontend && npm install",
-  "env": {
-    "ANGULAR_API_URL": "@angular_api_url",
-    "ANGULAR_SOCKET_URL": "@angular_socket_url"
-  },
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://<RENDER_API_URL>/api/$1"
+    },
+    {
+      "source": "/auth/(.*)",
+      "destination": "https://<RENDER_API_URL>/auth/$1"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

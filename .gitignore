@@ -1,6 +1,8 @@
 # Environment
 .env
 .env.local
+.env.backend
+.env.frontend
 
 # Node
 node_modules/

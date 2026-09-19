@@ -17,11 +17,5 @@ if [ "$DEPLOY_TARGET" = "vercel" ]; then
   npx vercel --prod --token $VERCEL_TOKEN
 fi
 
-# Option 2: Docker
-if [ "$DEPLOY_TARGET" = "docker" ]; then
-  echo "📦 Building Docker image..."
-  docker build -t codebase-frontend:latest .
-  docker push $REGISTRY/codebase-frontend:latest
-fi
 
 echo "Frontend deployed!"
