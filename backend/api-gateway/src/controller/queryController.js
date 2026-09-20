@@ -90,7 +90,7 @@ async function queryRepo(req, res, next) {
         const embedRes = await axios.post(
             `${process.env.WORKER_URL}/embed`,
             { text: question },
-            { timeout: 60000 }
+            { timeout: 120000 }
         );
         const { embedding } = embedRes.data;
         const vectorStr = `[${embedding.join(',')}]`;

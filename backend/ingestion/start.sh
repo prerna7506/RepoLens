@@ -4,7 +4,7 @@ set -e
 
 celery -A app.celery_app worker \
     --loglevel=info \
-    --concurrency=2 \
+    --concurrency=1 \
     --max-tasks-per-child=100 \
     --time-limit=600 &
 
