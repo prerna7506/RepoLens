@@ -8,8 +8,20 @@
       "destination": "https://repolens-web.onrender.com/api/$1"
     },
     {
-      "source": "/auth/(.*)",
-      "destination": "https://repolens-web.onrender.com/auth/$1"
+      "source": "/auth/github",
+      "destination": "https://repolens-web.onrender.com/auth/github"
+    },
+    {
+      "source": "/auth/github/callback",
+      "destination": "https://repolens-web.onrender.com/auth/github/callback"
+    },
+    {
+      "source": "/auth/refresh",
+      "destination": "https://repolens-web.onrender.com/auth/refresh"
+    },
+    {
+      "source": "/auth/logout",
+      "destination": "https://repolens-web.onrender.com/auth/logout"
     },
     {
       "source": "/(.*)",
