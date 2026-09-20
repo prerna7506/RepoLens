@@ -3,11 +3,11 @@ import shutil
 import hashlib
 import tempfile
 import json
+import importlib
 
 import git
 import psycopg2
 from psycopg2.extras import execute_values
-from sentence_transformers import SentenceTransformer
 from tree_sitter import Language, Parser
 import tree_sitter_javascript as tsjavascript
 import tree_sitter_typescript as tstypescript
@@ -25,7 +25,7 @@ _model = None
 def get_model():
     global _model
     if _model is None:
-        from fastembed import TextEmbedding
+        TextEmbedding = importlib.import_module("fastembed").TextEmbedding
         logger.info("loading_embedding_model", model = EMBED_MODEL_NAME)
         _model = TextEmbedding(EMBED_MODEL_NAME,threads=1)
     return _model
