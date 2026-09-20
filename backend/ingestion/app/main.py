@@ -1,6 +1,7 @@
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+import sys
 import threading
 import time
 import psycopg2
@@ -14,21 +15,8 @@ from app.logger import logger
 app = FastAPI(title="RepoLens Ingestion Worker")
 
 def _model_ready() -> bool:
-    import app.tasks.ingest as ingest_mod
-    return getattr(ingest_mod,"_model",None) is not None
-
-@app.on_event("startup")
-def warn_embeddding_model():
-    def _load():
-        try:
-            from app.tasks.ingest import get_model
-            started = time.time()
-            logger.info("Model warmup started")
-            get_model()
-            logger.info("Model warmup complete",seconds=round(time.time() - started,1))
-        except Exception as e:
-            logger.error("Model warmup failed",error=str(e))
-    threading.Thread(target=_load,daemon=True).start()
+    mod = sys.modules.get("app.tasks.ingest")
+    return mod is not None and getattr(mod,"_model",None) is not None
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -46,7 +34,7 @@ async def log_requests(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    status = {"postgres": "down", "redis": "down", "worker": "ok","model":"ready" if _model_ready() else "loading",}
+    status = {"postgres": "down", "redis": "down", "worker": "ok","model":"loaded" if _model_ready() else "not_loaded",}
     try:
         conn = psycopg2.connect(DATABASE_URL, connect_timeout=2)
         conn.close()
