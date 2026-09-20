@@ -19,14 +19,20 @@ from app.logger import logger
 import redis as redis_client
 
 # ── Lazy load model ────────────────────────────────────────
+EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 _model = None
 
 def get_model():
     global _model
     if _model is None:
-        logger.info("loading_embedding_model")
-        _model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+        from fastembed import TextEmbedding
+        logger.info("loading_embedding_model", model = EMBED_MODEL_NAME)
+        _model = TextEmbedding(EMBED_MODEL_NAME,threads=1)
     return _model
+
+def embed_texts(texts):
+    model = get_model()
+    return[vector.tolist() for vector in model.embed(list(texts))]
 
 # ── Tree-sitter languages ──────────────────────────────────
 JS_LANGUAGE = Language(tsjavascript.language(), "javascript")
@@ -477,9 +483,7 @@ def ingest_repo(self, repo_id: str, github_url: str, changed_files: list = None)
             batch = all_chunks[i:i + BATCH_SIZE]
             chunk_ids = [b[0] for b in batch]
             texts = [b[1] for b in batch]
-            vectors = get_model().encode(
-                texts, normalize_embeddings=True
-            ).tolist()
+            vectors = embed_texts(texts)
 
             embedding_rows = [
                 (chunk_id, vector, "BAAI/bge-small-en-v1.5")

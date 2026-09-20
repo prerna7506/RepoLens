@@ -76,8 +76,10 @@ class IngestRequest(BaseModel):
 
 @app.post("/ingest")
 def start_ingest(req: IngestRequest):
-    from app.tasks.ingest import ingest_repo
-    task = ingest_repo.delay(req.repo_id, req.clone_url, req.changed_files)
+    task = celery_app.send_task(
+        "ingest_repo",
+        args=[req.repo_id,req.clone_url,req.changed_files],
+    )
     return {"task_id": task.id}
 
 class EmbedRequest(BaseModel):
@@ -85,9 +87,5 @@ class EmbedRequest(BaseModel):
 
 @app.post("/embed")
 def embed_text(req: EmbedRequest):
-    from app.tasks.ingest import get_model
-    model = get_model()
-    embedding = model.encode(
-        [req.text], normalize_embeddings=True
-    ).tolist()[0]
-    return {"embedding": embedding}
+    from app.tasks.ingest import embed_texts
+    return {"embedding": embed_texts([req.text])[0]}
